@@ -1,0 +1,54 @@
+#VRML_SIM R2023b utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/robotstadium/protos/RobotstadiumSoccerField.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/softbank/nao/protos/Nao.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/balls/protos/RobocupSoccerBall.proto"
+
+WorldInfo {
+  info [
+    "Simulation of the Robocup Standard Platform League"
+  ]
+  title "Robocup"
+  basicTimeStep 20
+  contactProperties [
+    ContactProperties {
+      material1 "NAO foot material"
+      coulombFriction [
+        7
+      ]
+      bounce 0.3
+      bounceVelocity 0.003
+    }
+  ]
+}
+Viewpoint {
+  orientation 0.2361881116755289 0.23420871503721244 -0.9430596236207792 1.6377758695671165
+  position 2.6903883185861632 1.1256329250007506 2.7863193211415536
+  follow "soccer ball"
+}
+TexturedBackground {
+  texture "stadium"
+}
+TexturedBackgroundLight {
+  texture "stadium"
+}
+RobotstadiumSoccerField {
+  rotation 0 0 1 1.5707963267948966
+  frame1Color 0.9 0.8 0.2
+  frame2Color 0.2 0.4 0.8
+}
+DEF PLAYER_RED_0 Nao {
+  translation 3 -4 0.333006
+  rotation 0 0 -1 -1.57
+  name "NAO RED 0"
+  customColor [
+    1 0 0
+  ]
+  controller "walking"
+}
+RobocupSoccerBall {
+  translation 3.94177 2.22287 0.07
+  rotation 0.5773502691896258 0.5773502691896258 0.5773502691896258 2.094395
+}
