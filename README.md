@@ -10,7 +10,9 @@ Liu Ziheng, Cao Xinyuan, Chen Yitao.
 
 ## Usage
 
-Firstly download Webots software and load the world file `nao.wbt` . Make sure `Tools->Preferences->Python command` is configured correctly according to your python path. You can use Python package managers like `anaconda` or `venv` here. Run the simulation and you can see the training process.
+1. Download Webots software and load the world file `nao.wbt` . 
+2. Make sure `Tools->Preferences->Python command` is configured correctly according to your Python path. You can use Python package managers like `anaconda` or `venv` here. 
+3. Run the simulation and you can see the training process.
 
 ## Files
 
@@ -20,7 +22,7 @@ Firstly download Webots software and load the world file `nao.wbt` . Make sure `
 
 ## Division
 
-- Liu Ziheng: Basic structure of controller, including the RL algorithm, interacion with the environment and part of reward function design.
+- Liu Ziheng: Basic structure of controller, including the RL algorithm, interactions with the environment and part of reward function design.
 - Cao Xinyuan: 
 - Chen Yitao:
 
