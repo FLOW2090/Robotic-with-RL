@@ -24,8 +24,8 @@ WorldInfo {
   ]
 }
 Viewpoint {
-  orientation 0.2361881116755289 0.23420871503721244 -0.9430596236207792 1.6377758695671165
-  position 2.6903883185861632 1.1256329250007506 2.7863193211415536
+  orientation 0.22650694145655573 0.611757503135258 -0.7579230586475852 0.908820974236289
+  position -5.0246250436971405 1.0971486035203077 4.539544054149469
   follow "soccer ball"
 }
 TexturedBackground {
@@ -39,14 +39,15 @@ RobotstadiumSoccerField {
   frame1Color 0.9 0.8 0.2
   frame2Color 0.2 0.4 0.8
 }
-DEF PLAYER_RED_0 Nao {
-  translation 3 -4 0.333006
+DEF Robot Nao {
+  translation 0 -3.99749 0.333006
   rotation 0 0 -1 -1.57
   name "NAO RED 0"
   customColor [
     1 0 0
   ]
   controller "walking"
+  supervisor TRUE
 }
 RobocupSoccerBall {
   translation 3.94177 2.22287 0.07
