@@ -10,7 +10,7 @@ Liu Ziheng, Cao Xinyuan, Chen Yitao.
 
 ## Usage
 
-1. Download Webots software and load the world file `nao.wbt` . 
+1. Download Webots software and load the world file `World/nao.wbt` . 
 2. Make sure `Tools->Preferences->Python command` is configured correctly according to your Python path. You can use Python package managers like `anaconda` or `venv` here. 
 3. Run the simulation and you can see the training process.
 
