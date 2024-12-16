@@ -28,6 +28,7 @@ Liu Ziheng, Cao Xinyuan, Chen Yitao.
 
 ## TODO
 
+- Train and save ckpt.
 - Redesign the reward function.
 - Introduce PPO based on the AC algorithm applied currently.
 - Finetune the parameters, including lr, batch method, DOF and so on.
