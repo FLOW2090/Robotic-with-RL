@@ -1,5 +1,6 @@
 import torch
 
+# actor
 class PolicyNet(torch.nn.Module):
 
     def __init__(self, stateDim, actionDim):
@@ -23,6 +24,7 @@ class PolicyNet(torch.nn.Module):
             print(sigma)
         return mu, sigma
 
+# critic
 class ValueNet(torch.nn.Module):
     def __init__(self, stateDim):
         super(ValueNet, self).__init__()
@@ -36,7 +38,8 @@ class ValueNet(torch.nn.Module):
         x = self.fc3(x)
         return x
 
-class Agent:
+# actor-critic agent
+class Agent_AC:
 
     def __init__(self, stateDim, actionDim, gamma, policyLR, valueLR, device):
         self.policyNet = PolicyNet(stateDim, actionDim).to(device)

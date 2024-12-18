@@ -1,4 +1,5 @@
-from agent import Agent
+from agent_ac import Agent_AC
+from agent_ppo import Agent_PPO
 import torch
 
 class WalkingRobot:
@@ -9,12 +10,13 @@ class WalkingRobot:
         self.stateVec = None
         self.prevStateVec = None
         self.actionVec = None
+        self.preActionVec = None
         self.position = None
         self.prevPosition = None
         self.maxStep = 512
-        self.gamma = 0.95
-        self.policyLR = 1e-4
-        self.valueLR = 1e-4
+        self.gamma = 0.99
+        self.policyLR = 3e-4
+        self.valueLR = 1e-3
         self.reward = 0
         self.cumulatedReward = 0
 
@@ -57,7 +59,7 @@ class WalkingRobot:
         # Initialize agent
         stateDim = 8 + len(self.motorSensors)
         actionDim = len(self.motors)
-        self.agent = Agent(stateDim, actionDim, self.gamma, self.policyLR, self.valueLR, self.device)
+        self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.policyLR, self.valueLR, self.device)
 
     def reset(self):
         self.robot.simulationReset()
@@ -66,6 +68,7 @@ class WalkingRobot:
         self.position = None
         self.prevStateVec = None
         self.stateVec = None
+        self.prevActionVec = None
         self.actionVec = None
         self.cumulatedReward = 0
 
@@ -88,6 +91,7 @@ class WalkingRobot:
     def updateState(self):
         self.prevStateVec = self.stateVec
         self.prevPosition = self.position
+        self.prevActionVec = self.actionVec
         self.stateVec = self.genStateVec()
         self.position = self.robot.getFromDef('Robot').getField('translation').getSFVec3f()
 
@@ -109,17 +113,25 @@ class WalkingRobot:
 
     def accumulateReward(self):
         # Encourage to move forward
-        forwardReward = 100 * (self.position[1] - self.prevPosition[1])
+        forwardReward = 50 * (self.position[1] - self.prevPosition[1])
         # Penalty for moving sideward
-        sidewardPenalty = 10 * abs(self.position[0] - self.prevPosition[0])
+        sidewardPenalty = 5 * abs(self.position[0] - self.prevPosition[0])
         # Encourage to stay stable
-        stableReward = 100 * (1 - abs(self.position[2] - self.prevPosition[2]))
+        stableReward = 150 * (1 - abs(self.position[2] - self.prevPosition[2]))
         # Penalty for falling
-        fallPenalty = 500 * (self.position[2] < 0.25)
+        fallPenalty = 1000 * (self.position[2] < 0.25)
         # Penalty for too large clipping in motor movement
-        rescaleActionPenalty = torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec))
+        rescaleActionPenalty = 5 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec))
         # Encourage to stay alive
         aliveReward = 1
+        # 平滑动作惩罚：鼓励动作的连续性和平滑性
+        actionSmoothnessPenalty = 50 * torch.norm(self.actionVec - (self.prevActionVec if self.prevActionVec is not None else self.actionVec))
+        # 平衡奖励：利用陀螺仪数据鼓励机器人保持平衡
+        balanceReward = 50 * (1 - abs(self.gyro.getValues()[0]))
+        # 汇总奖励
+        reward = (forwardReward - sidewardPenalty + stableReward - fallPenalty
+                - rescaleActionPenalty + aliveReward - actionSmoothnessPenalty
+                + balanceReward)
         reward = forwardReward - sidewardPenalty + stableReward - fallPenalty - rescaleActionPenalty + aliveReward
         reward /= 80
         self.reward += reward

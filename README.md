@@ -18,7 +18,7 @@ Liu Ziheng, Cao Xinyuan, Chen Yitao.
 
 - `controllers/walking/walking.py` : The entrance function of the controller.
 - `controllers/walking/walkingRobot.py` : Defining the `WalkingRobot` class.
-- `controllers/walking/agent.py` : The NN used to approximate the policy function and value funciton used in `walkingRobot.py` .
+- `controllers/walking/agent.py` : The NN used to approximate the policy function and value function used in `walkingRobot.py` .
 
 ## Division
 
