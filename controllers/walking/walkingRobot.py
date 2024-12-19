@@ -30,11 +30,15 @@ class WalkingRobot:
 
         # Basic motors
         motorNames = [
-            'LAnklePitch', 'RAnklePitch', 'LKneePitch', 'RKneePitch', 'LHipPitch', 'RHipPitch',
-            'LAnkleRoll', 'RAnkleRoll', 'LHipRoll', 'RHipRoll', 'LHipYawPitch', 'RHipYawPitch',
-            'LElbowRoll', 'RElbowRoll', 'LElbowYaw', 'RElbowYaw', 'LShoulderPitch', 'RShoulderPitch',
-            'LElbowYaw', 'RElbowYaw', 'LShoulderRoll', 'RShoulderRoll', 'LWristYaw', 'RWristYaw'
+            'LAnklePitch', 'RAnklePitch', 'LKneePitch', 'RKneePitch', 
+            'LHipPitch', 'RHipPitch', 'LShoulderPitch', 'RShoulderPitch'
             ]
+        # motorNames = [
+        #     'LAnklePitch', 'RAnklePitch', 'LKneePitch', 'RKneePitch', 'LHipPitch', 'RHipPitch',
+        #     'LAnkleRoll', 'RAnkleRoll', 'LHipRoll', 'RHipRoll', 'LHipYawPitch', 'RHipYawPitch',
+        #     'LElbowRoll', 'RElbowRoll', 'LElbowYaw', 'RElbowYaw', 'LShoulderPitch', 'RShoulderPitch',
+        #     'LElbowYaw', 'RElbowYaw', 'LShoulderRoll', 'RShoulderRoll', 'LWristYaw', 'RWristYaw'
+        #     ]
         self.motors = []
         self.actionBounds = []
         for motorName in motorNames:
@@ -45,10 +49,8 @@ class WalkingRobot:
 
         # Basic motor position sensors
         motorSensorNames = [
-            'LAnklePitchS', 'RAnklePitchS', 'LKneePitchS', 'RKneePitchS', 'LHipPitchS', 'RHipPitchS',
-            'LAnkleRollS', 'RAnkleRollS', 'LHipRollS', 'RHipRollS', 'LHipYawPitchS', 'RHipYawPitchS',
-            'LElbowRollS', 'RElbowRollS', 'LElbowYawS', 'RElbowYawS', 'LShoulderPitchS', 'RShoulderPitchS',
-            'LElbowYawS', 'RElbowYawS', 'LShoulderRollS', 'RShoulderRollS', 'LWristYawS', 'RWristYawS'
+            'LAnklePitchS', 'RAnklePitchS', 'LKneePitchS', 'RKneePitchS', 
+            'LHipPitchS', 'RHipPitchS', 'LShoulderPitchS', 'RShoulderPitchS'
             ]
         self.motorSensors = []
         for motorSensorName in motorSensorNames:
@@ -60,6 +62,14 @@ class WalkingRobot:
         stateDim = 8 + len(self.motorSensors)
         actionDim = len(self.motors)
         self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.policyLR, self.valueLR, self.device)
+        
+        # # 加载模型参数
+        # try:
+        #     self.agent.policyNet.load_state_dict(torch.load('policyNet.pth'))
+        #     self.agent.valueNet.load_state_dict(torch.load('valueNet.pth'))
+        #     print("Model parameters loaded successfully.")
+        # except FileNotFoundError:
+        #     print("Model parameters not found. Training from scratch.")
 
     def reset(self):
         self.robot.simulationReset()
@@ -75,7 +85,7 @@ class WalkingRobot:
     def isTerminal(self, step):
         if step >= self.maxStep:
             return True
-        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.15:
+        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.25:
             return True
         return False
 
@@ -113,7 +123,7 @@ class WalkingRobot:
 
     def accumulateReward(self):
         # Encourage to move forward
-        forwardReward = 50 * (self.position[1] - self.prevPosition[1])
+        forwardReward = 100 * (self.position[1] - self.prevPosition[1])
         # Penalty for moving sideward
         sidewardPenalty = 5 * abs(self.position[0] - self.prevPosition[0])
         # Encourage to stay stable
