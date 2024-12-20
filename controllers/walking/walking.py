@@ -15,6 +15,14 @@ interval = 2
 episode = 0
 
 rewards = []
+forwardRewards = []
+sidewardPenalties = []
+stableRewards = []
+fallPenalties = []
+rescaleActionPenalties = []
+aliveRewards = []
+actionSmoothnessPenalties = []
+balanceRewards = []
 
 while walkingRobot.robot.step(timestep) != -1:
     walkingRobot.updateState()
@@ -23,10 +31,18 @@ while walkingRobot.robot.step(timestep) != -1:
         if step != 0:
             walkingRobot.update(step)
     if step != 0:
-        walkingRobot.accumulateReward()
+        walkingRobot.accumulateReward(step)
     if walkingRobot.isTerminal(step):
         episode += 1
         rewards.append(walkingRobot.cumulatedReward)
+        forwardRewards.append(walkingRobot.cumulatedForwardReward)
+        sidewardPenalties.append(walkingRobot.cumulatedSidewardPenalty)
+        stableRewards.append(walkingRobot.cumulatedStableReward)
+        fallPenalties.append(walkingRobot.cumulatedFallPenalty)
+        rescaleActionPenalties.append(walkingRobot.cumulatedRescaleActionPenalty)
+        aliveRewards.append(walkingRobot.cumulatedAliveReward)
+        actionSmoothnessPenalties.append(walkingRobot.cumulatedActionSmoothnessPenalty)
+        balanceRewards.append(walkingRobot.cumulatedBalanceReward)
         print(f"Episode {episode} finished with reward {walkingRobot.cumulatedReward} and step {step}")
         walkingRobot.reset()
         step = 0
@@ -48,6 +64,21 @@ while walkingRobot.robot.step(timestep) != -1:
             plt.ylabel('Value')
             plt.legend()
             plt.savefig(f'image/{episode}/reward_curve.png')
+            plt.close()
+            
+            plt.figure()
+            plt.plot([forwardReward.detach().cpu().numpy() for forwardReward in forwardRewards], label='Forward Reward')
+            plt.plot([sidewardPenalty.detach().cpu().numpy() for sidewardPenalty in sidewardPenalties], label='Sideward Penalty')
+            plt.plot([stableReward.detach().cpu().numpy() for stableReward in stableRewards], label='Stable Reward')
+            plt.plot([fallPenalty.detach().cpu().numpy() for fallPenalty in fallPenalties], label='Fall Penalty')
+            plt.plot([rescaleActionPenalty.detach().cpu().numpy() for rescaleActionPenalty in rescaleActionPenalties], label='Rescale Action Penalty')
+            plt.plot([aliveReward.detach().cpu().numpy() for aliveReward in aliveRewards], label='Alive Reward')
+            plt.plot([actionSmoothnessPenalty.detach().cpu().numpy() for actionSmoothnessPenalty in actionSmoothnessPenalties], label='Action Smoothness Penalty')
+            plt.plot([balanceReward.detach().cpu().numpy() for balanceReward in balanceRewards], label='Balance Reward')
+            plt.xlabel('Episode')
+            plt.ylabel('Value')
+            plt.legend()
+            plt.savefig(f'image/{episode}/detailed_reward_curve.png')
             plt.close()
     else:
         step += 1

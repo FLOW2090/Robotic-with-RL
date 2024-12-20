@@ -19,6 +19,14 @@ class WalkingRobot:
         self.valueLR = 1e-3
         self.reward = 0
         self.cumulatedReward = 0
+        self.cumulatedForwardReward = 0
+        self.cumulatedSidewardPenalty = 0
+        self.cumulatedStableReward = 0
+        self.cumulatedFallPenalty = 0
+        self.cumulatedRescaleActionPenalty = 0
+        self.cumulatedAliveReward = 0
+        self.cumulatedActionSmoothnessPenalty = 0
+        self.cumulatedBalanceReward = 0
 
         # Position sensors
         self.accelerometer = self.robot.getDevice('accelerometer')
@@ -65,8 +73,8 @@ class WalkingRobot:
         
         # # 加载模型参数
         # try:
-        #     self.agent.policyNet.load_state_dict(torch.load('policyNet.pth'))
-        #     self.agent.valueNet.load_state_dict(torch.load('valueNet.pth'))
+        #     self.agent.policyNet.load_state_dict(torch.load('model/61000/policyNet.pth'))
+        #     self.agent.valueNet.load_state_dict(torch.load('model/61000/valueNet.pth'))
         #     print("Model parameters loaded successfully.")
         # except FileNotFoundError:
         #     print("Model parameters not found. Training from scratch.")
@@ -81,6 +89,14 @@ class WalkingRobot:
         self.prevActionVec = None
         self.actionVec = None
         self.cumulatedReward = 0
+        self.cumulatedForwardReward = 0
+        self.cumulatedSidewardPenalty = 0
+        self.cumulatedStableReward = 0
+        self.cumulatedFallPenalty = 0
+        self.cumulatedRescaleActionPenalty = 0
+        self.cumulatedAliveReward = 0
+        self.cumulatedActionSmoothnessPenalty = 0
+        self.cumulatedBalanceReward = 0
 
     def isTerminal(self, step):
         if step >= self.maxStep:
@@ -121,7 +137,7 @@ class WalkingRobot:
         for i, motor in enumerate(self.motors):
             motor.setPosition(actionVec[i].item())
 
-    def accumulateReward(self):
+    def accumulateReward(self, step):
         # Encourage to move forward
         forwardReward = 100 * (self.position[1] - self.prevPosition[1])
         # Penalty for moving sideward
@@ -145,4 +161,12 @@ class WalkingRobot:
         reward = forwardReward - sidewardPenalty + stableReward - fallPenalty - rescaleActionPenalty + aliveReward
         reward /= 80
         self.reward += reward
-        self.cumulatedReward += reward
+        self.cumulatedReward += reward * self.gamma ** step
+        self.cumulatedForwardReward += forwardReward * self.gamma ** step
+        self.cumulatedSidewardPenalty += sidewardPenalty * self.gamma ** step
+        self.cumulatedStableReward += stableReward * self.gamma ** step
+        self.cumulatedFallPenalty += fallPenalty * self.gamma ** step
+        self.cumulatedRescaleActionPenalty += rescaleActionPenalty * self.gamma ** step
+        self.cumulatedAliveReward += aliveReward * self.gamma ** step
+        self.cumulatedActionSmoothnessPenalty += actionSmoothnessPenalty * self.gamma ** step
+        self.cumulatedBalanceReward += balanceReward * self.gamma ** step
