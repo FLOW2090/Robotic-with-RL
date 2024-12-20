@@ -4,8 +4,9 @@ class PolicyNet(torch.nn.Module):
     def __init__(self, stateDim, actionDim):
         super(PolicyNet, self).__init__()
         # 共享特征提取层
-        self.shared_fc1 = torch.nn.Linear(stateDim, 128)
-        self.shared_fc2 = torch.nn.Linear(128, 64)
+        self.shared_fc1 = torch.nn.Linear(stateDim, 1024)
+        self.shared_fc2 = torch.nn.Linear(1024, 256)
+        self.shared_fc3 = torch.nn.Linear(256, 64)
 
         # 均值（mu）分支
         self.mu_fc = torch.nn.Linear(64, actionDim)
@@ -17,6 +18,7 @@ class PolicyNet(torch.nn.Module):
         # 提取共享特征
         shared = torch.relu(self.shared_fc1(state))
         shared = torch.relu(self.shared_fc2(shared))
+        shared = torch.relu(self.shared_fc3(shared))
         
         # 计算均值（mu）
         mu = self.mu_fc(shared)
@@ -32,19 +34,22 @@ class PolicyNet(torch.nn.Module):
 class ValueNet(torch.nn.Module):
     def __init__(self, stateDim):
         super(ValueNet, self).__init__()
-        self.fc1 = torch.nn.Linear(stateDim, 128)
-        self.fc2 = torch.nn.Linear(128, 64)
-        self.fc3 = torch.nn.Linear(64, 1)
+        self.fc1 = torch.nn.Linear(stateDim, 1024)
+        self.fc2 = torch.nn.Linear(1024, 256)
+        self.fc3 = torch.nn.Linear(256, 64)
+        self.fc4 = torch.nn.Linear(64, 1)
         
         # 使用 He 初始化
         torch.nn.init.kaiming_normal_(self.fc1.weight)
         torch.nn.init.kaiming_normal_(self.fc2.weight)
         torch.nn.init.kaiming_normal_(self.fc3.weight)
+        torch.nn.init.kaiming_normal_(self.fc4.weight)
 
     def forward(self, state):
         x = torch.relu(self.fc1(state))
         x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = torch.relu(self.fc3(x))
+        x = self.fc4(x)
         return torch.clamp(x, -1e3, 1e3) # 限制范围 [-1e3, 1e3]，防止梯度爆炸/消失
 
 class Agent_PPO:
