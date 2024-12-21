@@ -9,6 +9,7 @@ class WalkingRobot:
         self.stateVec = None
         self.prevStateVec = None
         self.actionVec = None
+        self.prevActionVec = None
         self.position = None
         self.prevPosition = None
         self.maxStep = 512
@@ -23,6 +24,7 @@ class WalkingRobot:
         self.cumulatedFallPenalty = 0
         self.cumulatedRescaleActionPenalty = 0
         self.cumulatedAliveReward = 0
+        self.cumulatedMovementPenalty = 0
 
         # Position sensors
         self.accelerometer = self.robot.getDevice('accelerometer')
@@ -76,15 +78,17 @@ class WalkingRobot:
         self.cumulatedFallPenalty = 0
         self.cumulatedRescaleActionPenalty = 0
         self.cumulatedAliveReward = 0
+        self.cumulatedMovementPenalty = 0
 
     def isTerminal(self, step):
         if step >= self.maxStep:
             return True
-        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.15:
+        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.25:
             return True
         return False
 
     def act(self):
+        self.prevActionVec = self.actionVec
         self.actionVec = self.agent.genActionVec(self.stateVec)
         rescaledActionVec = self.rescaleActionVec(self.actionVec)
         self.takeAction(rescaledActionVec)
@@ -115,26 +119,27 @@ class WalkingRobot:
         for i, motor in enumerate(self.motors):
             motor.setPosition(actionVec[i].item())
 
-    def accumulateReward(self):
+    def accumulateReward(self, step):
         # Encourage to move forward
-        forwardReward = 100 * (self.position[1] - self.prevPosition[1])
-        # Penalty for moving sideward
-        sidewardPenalty = 5 * abs(self.position[0] - self.prevPosition[0])
-        # Encourage to stay stable
-        stableReward = 150 * (1 - abs(self.position[2] - self.prevPosition[2]))
+        forwardReward = 200 * (self.position[1] - self.prevPosition[1])
+        # # Penalty for moving sideward
+        # sidewardPenalty = 10 * abs(self.position[0] - self.prevPosition[0])
+        # # Encourage to stay stable
+        # stableReward = 0.3 * (1 - abs(self.position[2] - self.prevPosition[2]))
         # Penalty for falling
-        fallPenalty = 1000 * (self.position[2] < 0.25)
+        fallPenalty = 50 * (self.position[2] < 0.25)
         # Penalty for too large clipping in motor movement
-        rescaleActionPenalty = 5 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
+        rescaleActionPenalty = 0.05 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
         # Encourage to stay alive
-        aliveReward = 1
-        reward = forwardReward - sidewardPenalty + stableReward - fallPenalty - rescaleActionPenalty + aliveReward
-        reward /= 80
+        aliveReward = 0.75
+        # Penalty for too large change in action
+        movementPenalty = 0.2 * torch.norm(self.rescaleActionVec(self.actionVec) - (self.rescaleActionVec(self.prevActionVec) if self.prevActionVec is not None else self.rescaleActionVec(self.actionVec))).item()
+        reward = forwardReward - movementPenalty - fallPenalty - rescaleActionPenalty + aliveReward
+        reward /= 20
         self.reward += reward
-        self.cumulatedReward += reward
-        self.cumulatedForwardReward += forwardReward
-        self.cumulatedSidewardPenalty += sidewardPenalty
-        self.cumulatedStableReward += stableReward
-        self.cumulatedFallPenalty += fallPenalty
-        self.cumulatedRescaleActionPenalty += rescaleActionPenalty
-        self.cumulatedAliveReward += aliveReward
+        self.cumulatedReward += self.gamma ** step * reward
+        self.cumulatedForwardReward += self.gamma ** step * forwardReward
+        self.cumulatedFallPenalty += self.gamma ** step * fallPenalty
+        self.cumulatedRescaleActionPenalty += self.gamma ** step * rescaleActionPenalty
+        self.cumulatedAliveReward += self.gamma ** step * aliveReward
+        self.cumulatedMovementPenalty += self.gamma ** step * movementPenalty

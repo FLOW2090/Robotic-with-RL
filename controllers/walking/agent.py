@@ -49,10 +49,12 @@ class Agent:
         self.device = device
         self.valueLossList = []
         self.policyLossList = []
+        self.sigmaList = []
 
     def genActionVec(self, stateVec):
         assert(not torch.isnan(stateVec).any())
         mu, sigma = self.policyNet(stateVec)
+        self.sigmaList.append(sigma.mean().item())
         actionVec = torch.normal(mu, sigma).to(self.device)
         return actionVec
 
@@ -69,10 +71,10 @@ class Agent:
         valueLoss = -delta * self.genValue(prevStateVec)
         self.valueLossList.append(valueLoss.item())
         self.valueOptimizer.zero_grad()
-        valueLoss.backward()
+        valueLoss.backward(retain_graph=True)
         self.valueOptimizer.step()
         policyLoss = -delta * self.gamma ** step * self.genLogProb(actionVec, prevStateVec).mean()
         self.policyLossList.append(policyLoss.item())
         self.policyOptimizer.zero_grad()
-        policyLoss.backward()
+        policyLoss.backward(retain_graph=True)
         self.policyOptimizer.step()
