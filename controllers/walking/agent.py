@@ -47,6 +47,8 @@ class Agent:
         self.policyLR = policyLR
         self.valueLR = valueLR
         self.device = device
+        self.valueLossList = []
+        self.policyLossList = []
 
     def genActionVec(self, stateVec):
         assert(not torch.isnan(stateVec).any())
@@ -62,12 +64,15 @@ class Agent:
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
 
     def update(self, reward, prevStateVec, stateVec, actionVec, step):
-        delta = (reward + self.gamma * self.genValue(stateVec) - self.genValue(prevStateVec)).detach()
+        with torch.no_grad():
+            delta = (reward + self.gamma * self.genValue(stateVec) - self.genValue(prevStateVec))
         valueLoss = -delta * self.genValue(prevStateVec)
+        self.valueLossList.append(valueLoss.item())
         self.valueOptimizer.zero_grad()
         valueLoss.backward()
         self.valueOptimizer.step()
         policyLoss = -delta * self.gamma ** step * self.genLogProb(actionVec, prevStateVec).mean()
+        self.policyLossList.append(policyLoss.item())
         self.policyOptimizer.zero_grad()
         policyLoss.backward()
         self.policyOptimizer.step()

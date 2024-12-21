@@ -12,11 +12,17 @@ class WalkingRobot:
         self.position = None
         self.prevPosition = None
         self.maxStep = 512
-        self.gamma = 0.95
-        self.policyLR = 1e-4
-        self.valueLR = 1e-4
+        self.gamma = 0.99
+        self.policyLR = 3e-4
+        self.valueLR = 1e-3
         self.reward = 0
         self.cumulatedReward = 0
+        self.cumulatedForwardReward = 0
+        self.cumulatedSidewardPenalty = 0
+        self.cumulatedStableReward = 0
+        self.cumulatedFallPenalty = 0
+        self.cumulatedRescaleActionPenalty = 0
+        self.cumulatedAliveReward = 0
 
         # Position sensors
         self.accelerometer = self.robot.getDevice('accelerometer')
@@ -29,9 +35,7 @@ class WalkingRobot:
         # Basic motors
         motorNames = [
             'LAnklePitch', 'RAnklePitch', 'LKneePitch', 'RKneePitch', 'LHipPitch', 'RHipPitch',
-            'LAnkleRoll', 'RAnkleRoll', 'LHipRoll', 'RHipRoll', 'LHipYawPitch', 'RHipYawPitch',
-            'LElbowRoll', 'RElbowRoll', 'LElbowYaw', 'RElbowYaw', 'LShoulderPitch', 'RShoulderPitch',
-            'LElbowYaw', 'RElbowYaw', 'LShoulderRoll', 'RShoulderRoll', 'LWristYaw', 'RWristYaw'
+            'LShoulderPitch', 'RShoulderPitch',
             ]
         self.motors = []
         self.actionBounds = []
@@ -44,9 +48,7 @@ class WalkingRobot:
         # Basic motor position sensors
         motorSensorNames = [
             'LAnklePitchS', 'RAnklePitchS', 'LKneePitchS', 'RKneePitchS', 'LHipPitchS', 'RHipPitchS',
-            'LAnkleRollS', 'RAnkleRollS', 'LHipRollS', 'RHipRollS', 'LHipYawPitchS', 'RHipYawPitchS',
-            'LElbowRollS', 'RElbowRollS', 'LElbowYawS', 'RElbowYawS', 'LShoulderPitchS', 'RShoulderPitchS',
-            'LElbowYawS', 'RElbowYawS', 'LShoulderRollS', 'RShoulderRollS', 'LWristYawS', 'RWristYawS'
+            'LShoulderPitchS', 'RShoulderPitchS',
             ]
         self.motorSensors = []
         for motorSensorName in motorSensorNames:
@@ -68,6 +70,12 @@ class WalkingRobot:
         self.stateVec = None
         self.actionVec = None
         self.cumulatedReward = 0
+        self.cumulatedForwardReward = 0
+        self.cumulatedSidewardPenalty = 0
+        self.cumulatedStableReward = 0
+        self.cumulatedFallPenalty = 0
+        self.cumulatedRescaleActionPenalty = 0
+        self.cumulatedAliveReward = 0
 
     def isTerminal(self, step):
         if step >= self.maxStep:
@@ -111,16 +119,22 @@ class WalkingRobot:
         # Encourage to move forward
         forwardReward = 100 * (self.position[1] - self.prevPosition[1])
         # Penalty for moving sideward
-        sidewardPenalty = 10 * abs(self.position[0] - self.prevPosition[0])
+        sidewardPenalty = 5 * abs(self.position[0] - self.prevPosition[0])
         # Encourage to stay stable
-        stableReward = 100 * (1 - abs(self.position[2] - self.prevPosition[2]))
+        stableReward = 150 * (1 - abs(self.position[2] - self.prevPosition[2]))
         # Penalty for falling
-        fallPenalty = 500 * (self.position[2] < 0.25)
+        fallPenalty = 1000 * (self.position[2] < 0.25)
         # Penalty for too large clipping in motor movement
-        rescaleActionPenalty = torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec))
+        rescaleActionPenalty = 5 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
         # Encourage to stay alive
         aliveReward = 1
         reward = forwardReward - sidewardPenalty + stableReward - fallPenalty - rescaleActionPenalty + aliveReward
         reward /= 80
         self.reward += reward
         self.cumulatedReward += reward
+        self.cumulatedForwardReward += forwardReward
+        self.cumulatedSidewardPenalty += sidewardPenalty
+        self.cumulatedStableReward += stableReward
+        self.cumulatedFallPenalty += fallPenalty
+        self.cumulatedRescaleActionPenalty += rescaleActionPenalty
+        self.cumulatedAliveReward += aliveReward
