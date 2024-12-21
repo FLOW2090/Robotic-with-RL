@@ -13,6 +13,13 @@ class PolicyNet(torch.nn.Module):
         
         # 标准差（sigma）分支
         self.sigma_fc = torch.nn.Linear(64, actionDim)
+        
+        # 使用 He 初始化
+        torch.nn.init.xavier_normal_(self.shared_fc1.weight)
+        torch.nn.init.xavier_normal_(self.shared_fc2.weight)
+        torch.nn.init.xavier_normal_(self.shared_fc3.weight)
+        torch.nn.init.xavier_normal_(self.mu_fc.weight)
+        
 
     def forward(self, state):
         # 提取共享特征
@@ -20,14 +27,9 @@ class PolicyNet(torch.nn.Module):
         shared = torch.relu(self.shared_fc2(shared))
         shared = torch.relu(self.shared_fc3(shared))
         
-        # 计算均值（mu）
         mu = self.mu_fc(shared)
+        sigma = torch.exp(self.sigma_fc(shared))
         
-        # 计算标准差（sigma），并确保数值稳定
-        sigma = torch.exp(torch.clamp(self.sigma_fc(shared), -2, 2))
-        
-        # 防止 sigma 太小
-        sigma = torch.clamp(sigma, min=1e-3)
         return mu, sigma
 
 
@@ -40,10 +42,10 @@ class ValueNet(torch.nn.Module):
         self.fc4 = torch.nn.Linear(64, 1)
         
         # 使用 He 初始化
-        torch.nn.init.kaiming_normal_(self.fc1.weight)
-        torch.nn.init.kaiming_normal_(self.fc2.weight)
-        torch.nn.init.kaiming_normal_(self.fc3.weight)
-        torch.nn.init.kaiming_normal_(self.fc4.weight)
+        torch.nn.init.xavier_normal_(self.fc1.weight)
+        torch.nn.init.xavier_normal_(self.fc2.weight)
+        torch.nn.init.xavier_normal_(self.fc3.weight)
+        torch.nn.init.xavier_normal_(self.fc4.weight)
 
     def forward(self, state):
         x = torch.relu(self.fc1(state))
@@ -63,11 +65,17 @@ class Agent_PPO:
         self.policyLR = policyLR
         self.valueLR = valueLR
         self.device = device
+        self.valueLossList = []
+        self.policyLossList = []
+        self.freeze_actor = True  # 初始阶段冻结Actor网络
 
     def genActionVec(self, stateVec):
         assert(not torch.isnan(stateVec).any())
         mu, sigma = self.policyNet(stateVec)
+        # print(f"mu: {mu}, sigma: {sigma}")
         actionVec = torch.normal(mu, sigma).to(self.device)
+        # 打印生成的动作向量
+        # print(f"Generated action vector: {actionVec}")
         return actionVec
 
     def genValue(self, stateVec):
@@ -75,28 +83,44 @@ class Agent_PPO:
 
     def genLogProb(self, actionVec, stateVec):
         mu, sigma = self.policyNet(stateVec)
+        
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
     
     def update(self, reward, prevStateVec, stateVec, actionVec, step):
         # Critic 更新
-        delta = (reward + self.gamma * self.genValue(stateVec).detach() - self.genValue(prevStateVec))
-        valueLoss = delta ** 2
+        # delta = (reward + self.gamma * self.genValue(stateVec).detach() - self.genValue(prevStateVec))
+        # valueLoss = delta ** 2
+        with torch.no_grad():
+            delta = (reward + self.gamma * self.genValue(stateVec) - self.genValue(prevStateVec))
+        valueLoss = -delta * self.genValue(prevStateVec)
+        
+        self.valueLossList.append(valueLoss.item())
         self.valueOptimizer.zero_grad()
-        valueLoss.backward(retain_graph=True)  # 单独的计算图
+        valueLoss.backward(retain_graph=True)
         self.valueOptimizer.step()
 
+        # 如果冻结Actor网络，则不更新Actor网络
+        if self.freeze_actor:
+            return
+        
         # Actor 更新
         mu, sigma = self.policyNet(prevStateVec)
         dist = torch.distributions.Normal(mu, sigma)
         log_prob = dist.log_prob(actionVec)
         ratio = torch.exp(log_prob - self.genLogProb(actionVec, prevStateVec))
+        # new_log_prob = self.genLogProb(actionVec, stateVec)
+        # old_log_prob = self.genLogProb(actionVec, prevStateVec)
+        # ratio = torch.exp(new_log_prob - old_log_prob)
 
         # PPO 剪辑
         epsilon = 0.2
         advantage = delta.detach()  # 使用 TD 误差作为 Advantage
         clipped_ratio = torch.clamp(ratio, 1 - epsilon, 1 + epsilon)
         policyLoss = -torch.min(ratio * advantage, clipped_ratio * advantage).mean()
-
+        
+        self.policyLossList.append(policyLoss.item())
         self.policyOptimizer.zero_grad()
-        policyLoss.backward(retain_graph=True)  # 单独的计算图
+        policyLoss.backward(retain_graph=True)
         self.policyOptimizer.step()
+        
+        # print(f"Step {step} reward: {reward} Value loss: {valueLoss.item()}, Policy loss: {policyLoss.item()}")
