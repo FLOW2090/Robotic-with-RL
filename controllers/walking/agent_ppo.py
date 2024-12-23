@@ -4,8 +4,8 @@ class PolicyNet(torch.nn.Module):
     def __init__(self, stateDim, actionDim):
         super(PolicyNet, self).__init__()
         # 共享特征提取层
-        self.shared_fc1 = torch.nn.Linear(stateDim, 1024)
-        self.shared_fc2 = torch.nn.Linear(1024, 256)
+        self.shared_fc1 = torch.nn.Linear(stateDim, 256)
+        self.shared_fc2 = torch.nn.Linear(256, 256)
         self.shared_fc3 = torch.nn.Linear(256, 64)
 
         # 均值（mu）分支
@@ -23,9 +23,9 @@ class PolicyNet(torch.nn.Module):
 
     def forward(self, state):
         # 提取共享特征
-        shared = torch.relu(self.shared_fc1(state))
-        shared = torch.relu(self.shared_fc2(shared))
-        shared = torch.relu(self.shared_fc3(shared))
+        shared = torch.tanh(self.shared_fc1(state))
+        shared = torch.tanh(self.shared_fc2(shared))
+        shared = torch.tanh(self.shared_fc3(shared))
         
         mu = self.mu_fc(shared)
         sigma = torch.exp(self.sigma_fc(shared))
@@ -36,8 +36,8 @@ class PolicyNet(torch.nn.Module):
 class ValueNet(torch.nn.Module):
     def __init__(self, stateDim):
         super(ValueNet, self).__init__()
-        self.fc1 = torch.nn.Linear(stateDim, 1024)
-        self.fc2 = torch.nn.Linear(1024, 256)
+        self.fc1 = torch.nn.Linear(stateDim, 256)
+        self.fc2 = torch.nn.Linear(256, 256)
         self.fc3 = torch.nn.Linear(256, 64)
         self.fc4 = torch.nn.Linear(64, 1)
         
@@ -48,9 +48,9 @@ class ValueNet(torch.nn.Module):
         torch.nn.init.xavier_normal_(self.fc4.weight)
 
     def forward(self, state):
-        x = torch.relu(self.fc1(state))
-        x = torch.relu(self.fc2(x))
-        x = torch.relu(self.fc3(x))
+        x = torch.tanh(self.fc1(state))
+        x = torch.tanh(self.fc2(x))
+        x = torch.tanh(self.fc3(x))
         x = self.fc4(x)
         return torch.clamp(x, -1e3, 1e3) # 限制范围 [-1e3, 1e3]，防止梯度爆炸/消失
 
@@ -96,7 +96,7 @@ class Agent_PPO:
         
         self.valueLossList.append(valueLoss.item())
         self.valueOptimizer.zero_grad()
-        valueLoss.backward(retain_graph=True)
+        valueLoss.backward()
         self.valueOptimizer.step()
 
         # 如果冻结Actor网络，则不更新Actor网络
@@ -120,7 +120,7 @@ class Agent_PPO:
         
         self.policyLossList.append(policyLoss.item())
         self.policyOptimizer.zero_grad()
-        policyLoss.backward(retain_graph=True)
+        policyLoss.backward()
         self.policyOptimizer.step()
         
         # print(f"Step {step} reward: {reward} Value loss: {valueLoss.item()}, Policy loss: {policyLoss.item()}")

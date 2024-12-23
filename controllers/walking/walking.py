@@ -31,7 +31,7 @@ fallPenalties = []
 aliveRewards = []
 # actionSmoothnessPenalties = []
 # balanceRewards = []
-noMovementPenalties = []
+# noMovementPenalties = []
 
 while walkingRobot.robot.step(timestep) != -1:
     walkingRobot.updateState()
@@ -49,7 +49,7 @@ while walkingRobot.robot.step(timestep) != -1:
         aliveRewards.append(walkingRobot.cumulatedAliveReward)
         # actionSmoothnessPenalties.append(walkingRobot.cumulatedActionSmoothnessPenalty)
         # balanceRewards.append(walkingRobot.cumulatedBalanceReward)
-        noMovementPenalties.append(walkingRobot.cumulatedNoMovementPenalty)
+        # noMovementPenalties.append(walkingRobot.cumulatedNoMovementPenalty)
         print(f"Episode {episode} finished with reward {walkingRobot.cumulatedReward} and step {step}")
         rewards.append(walkingRobot.cumulatedReward)
         forwardRewards.append(walkingRobot.cumulatedForwardReward)
@@ -146,7 +146,7 @@ while walkingRobot.robot.step(timestep) != -1:
             plt.plot([aliveReward for aliveReward in aliveRewards], label='Alive Reward')
             # plt.plot([actionSmoothnessPenalty.detach().cpu().numpy() for actionSmoothnessPenalty in actionSmoothnessPenalties], label='Action Smoothness Penalty')
             # plt.plot([balanceReward for balanceReward in balanceRewards], label='Balance Reward')
-            plt.plot([noMovementPenalty for noMovementPenalty in noMovementPenalties], label='No Movement Penalty')
+            # plt.plot([noMovementPenalty for noMovementPenalty in noMovementPenalties], label='No Movement Penalty')
             plt.xlabel('Episode')
             plt.ylabel('Value')
             plt.legend()
