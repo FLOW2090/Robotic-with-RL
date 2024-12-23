@@ -112,7 +112,7 @@ class WalkingRobot:
 
     # Generate new action based on current state
     def act(self):
-        self.actionVec = self.agent.genActionVec(self.stateVec)
+        self.actionVec = self.agent.genActionVec(self.stateVec).detach()
         rescaledActionVec = self.rescaleActionVec(self.actionVec)
         self.takeAction(rescaledActionVec)
 
