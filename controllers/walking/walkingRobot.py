@@ -37,32 +37,26 @@ class WalkingRobot:
         self.rewards = []
         self.forwardRewards = []
         self.fallPenalties = []
+        self.heightPenalties = []
         self.movementPenalties = []
         self.rescaleActionPenalties = []
         self.aliveRewards = []
 
         # Position sensors
-        self.headNear = self.robot.getDevice('PRM:/r1/c1/c2/c3/p1-Sensor:p1')
-        self.headNear.enable(self.timestep)
-        self.headFar = self.robot.getDevice('PRM:/r1/c1/c2/c3/p2-Sensor:p2')
-        self.headFar.enable(self.timestep)
-        self.chest = self.robot.getDevice('PRM:/p1-Sensor:p1')
-        self.chest.enable(self.timestep)
+        self.accelerometer = self.robot.getDevice('accelerometer')
+        self.accelerometer.enable(self.timestep)
+        self.gyro = self.robot.getDevice('gyro')
+        self.gyro.enable(self.timestep)
+        self.inertialUnit = self.robot.getDevice('inertial unit')
+        self.inertialUnit.enable(self.timestep)
 
         # Basic motors
         motorNames = [
-            'PRM:/r4/c1-Joint2:41', 'PRM:/r4/c1/c2-Joint2:42', 'PRM:/r4/c1/c2/c3-Joint2:43',
-            'PRM:/r5/c1-Joint2:51', 'PRM:/r5/c1/c2-Joint2:52', 'PRM:/r5/c1/c2/c3-Joint2:53',
-            'PRM:/r2/c1-Joint2:21', 'PRM:/r2/c1/c2-Joint2:22', 'PRM:/r2/c1/c2/c3-Joint2:23',
-            'PRM:/r3/c1-Joint2:31', 'PRM:/r3/c1/c2-Joint2:32', 'PRM:/r3/c1/c2/c3-Joint2:33'
+            "front left shoulder abduction motor",  "front left shoulder rotation motor",  "front left elbow motor",
+            "front right shoulder abduction motor", "front right shoulder rotation motor", "front right elbow motor",
+            "rear left shoulder abduction motor",   "rear left shoulder rotation motor",   "rear left elbow motor",
+            "rear right shoulder abduction motor",  "rear right shoulder rotation motor",  "rear right elbow motor"
             ]
-            
-        # motorNames = [
-        #     'Right foreleg J1', 'Right foreleg J2', 'Right foreleg J3', 
-        #     'Right hindleg J1', 'Right hindleg J2', 'Right hindleg J3',
-        #     'Left foreleg J1', 'Left foreleg J2', 'Left foreleg J3',
-        #     'Left hindleg J1', 'Left hindleg J2', 'Left hindleg J3'
-        #     ]
         # motorNames = [
         #     'LAnklePitch', 'RAnklePitch', 'LKneePitch', 'RKneePitch', 'LHipPitch', 'RHipPitch',
         #     'LAnkleRoll', 'RAnkleRoll', 'LHipRoll', 'RHipRoll', 'LHipYawPitch', 'RHipYawPitch',
@@ -78,20 +72,18 @@ class WalkingRobot:
         self.actionBounds = torch.tensor(self.actionBounds, dtype=torch.float32, device=self.device)
 
         # Basic motor position sensors
-        motorSensorNames = [
-            'PRM:/r4/c1-JointSensor2:41', 'PRM:/r4/c1/c2-JointSensor2:42', 'PRM:/r4/c1/c2/c3-JointSensor2:43',
-            'PRM:/r5/c1-JointSensor2:51', 'PRM:/r5/c1/c2-JointSensor2:52', 'PRM:/r5/c1/c2/c3-JointSensor2:53',
-            'PRM:/r2/c1/c2-JointSensor2:22', 'PRM:/r2/c1/c2/c3-JointSensor2:23',
-            'PRM:/r3/c1-JointSensor2:31', 'PRM:/r3/c1/c2-JointSensor2:32', 'PRM:/r3/c1/c2/c3-JointSensor2:33'
-            ]
+        # motorSensorNames = [
+        #     'LAnklePitchS', 'RAnklePitchS', 'LKneePitchS', 'RKneePitchS', 'LHipPitchS', 'RHipPitchS',
+        #     'LShoulderPitchS', 'RShoulderPitchS',
+        #     ]
         self.motorSensors = []
-        for motorSensorName in motorSensorNames:
-            motorSensor = self.robot.getDevice(motorSensorName)
-            motorSensor.enable(self.timestep)
-            self.motorSensors.append(motorSensor)
+        # for motorSensorName in motorSensorNames:
+        #     motorSensor = self.robot.getDevice(motorSensorName)
+        #     motorSensor.enable(self.timestep)
+        #     self.motorSensors.append(motorSensor)
 
         # Initialize agent
-        stateDim = len(self.motorSensors)
+        stateDim = 8 + len(self.motorSensors)
         actionDim = len(self.motors)
         self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.lmd, self.policyLR, self.valueLR, self.device)
         
@@ -115,7 +107,7 @@ class WalkingRobot:
     def isTerminal(self, step):
         if step >= self.maxStep:
             return True
-        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.10:
+        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.4:
             return True
         return False
 
@@ -144,6 +136,9 @@ class WalkingRobot:
 
     def genStateVec(self):
         stateVec = torch.tensor([], dtype=torch.float32, device=self.device)
+        stateVec = torch.cat((stateVec, torch.tensor(self.accelerometer.getValues(), dtype=torch.float32, device=self.device)))
+        stateVec = torch.cat((stateVec, torch.tensor(self.gyro.getValues()[0:2], dtype=torch.float32, device=self.device)))
+        stateVec = torch.cat((stateVec, torch.tensor(self.inertialUnit.getRollPitchYaw(), dtype=torch.float32, device=self.device)))
         for motorSensor in self.motorSensors:
             stateVec = torch.cat((stateVec, torch.tensor([motorSensor.getValue()], dtype=torch.float32, device=self.device)))
         return stateVec
@@ -157,21 +152,24 @@ class WalkingRobot:
 
     def observeReward(self):
         # Encourage to move forward
-        forwardReward = 5000 * (self.position[1] - self.prevPosition[1]) if self.prevPosition is not None else 0
+        forwardReward = 2000 * (self.position[1] - self.prevPosition[1]) if self.prevPosition is not None else 0
         # Penalty for falling
-        fallPenalty = 100 * (self.position[2] < 0.10)
+        fallPenalty = 10 * (self.position[2] < 0.5)
+        # Penalty for large change in height
+        heightPenalty = 10 * (self.position[2] - self.prevPosition[2]) if self.prevPosition is not None else 0
         # Penalty for too large clipping in motor movement
-        rescaleActionPenalty = 0.005 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
+        rescaleActionPenalty = 0.05 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
         # Encourage to stay alive
-        aliveReward = 2
+        aliveReward = 10
         # Penalty for too large change in action
         movementPenalty = 0.2 * torch.norm(self.rescaleActionVec(self.actionVec) - self.rescaleActionVec(self.prevActionVec)).item() if self.prevActionVec is not None else 0
-        reward = forwardReward - movementPenalty - fallPenalty - rescaleActionPenalty + aliveReward
+        reward = forwardReward - movementPenalty - fallPenalty - rescaleActionPenalty + aliveReward - heightPenalty
         reward /= 20
         self.reward = reward
         self.rewards.append(reward)
         self.forwardRewards.append(forwardReward)
         self.fallPenalties.append(fallPenalty)
+        self.heightPenalties.append(heightPenalty)
         self.rescaleActionPenalties.append(rescaleActionPenalty)
         self.aliveRewards.append(aliveReward)
         self.movementPenalties.append(movementPenalty)
@@ -206,6 +204,7 @@ class WalkingRobot:
         plt.figure()
         plt.plot(self.forwardRewards, label='Forward Reward')
         plt.plot(self.fallPenalties, label='Fall Penalty')
+        plt.plot(self.heightPenalties, label='Height Penalty')
         plt.plot(self.movementPenalties, label='Movement Penalty')
         plt.plot(self.rescaleActionPenalties, label='Rescale Action Penalty')
         plt.plot(self.aliveRewards, label='Alive Reward')

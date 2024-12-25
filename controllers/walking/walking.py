@@ -37,7 +37,7 @@ while walkingRobot.robot.step(timestep) != -1:
         walkingRobot.reset()
         step = 0
         episode += 1
-        if episode % 50 == 0:
+        if episode % 1000 == 0:
             # pass
             walkingRobot.plot(episode)
         continue
