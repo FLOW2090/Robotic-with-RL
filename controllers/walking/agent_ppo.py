@@ -4,12 +4,12 @@ class PolicyNet(torch.nn.Module):
     def __init__(self, stateDim, actionDim):
         super(PolicyNet, self).__init__()
         torch.autograd.set_detect_anomaly(True)
-        self.mufc1 = torch.nn.Linear(stateDim, 64)
-        self.mufc2 = torch.nn.Linear(64, 64)
-        self.mufc3 = torch.nn.Linear(64, actionDim)
-        self.sigmafc1 = torch.nn.Linear(stateDim, 64)
-        self.sigmafc2 = torch.nn.Linear(64, 64)
-        self.sigmafc3 = torch.nn.Linear(64, actionDim)
+        self.mufc1 = torch.nn.Linear(stateDim, 256)
+        self.mufc2 = torch.nn.Linear(256, 128)
+        self.mufc3 = torch.nn.Linear(128, actionDim)
+        self.sigmafc1 = torch.nn.Linear(stateDim, 256)
+        self.sigmafc2 = torch.nn.Linear(256, 128)
+        self.sigmafc3 = torch.nn.Linear(128, actionDim)
 
         torch.nn.init.xavier_normal_(self.mufc1.weight)
         torch.nn.init.xavier_normal_(self.mufc2.weight)
@@ -31,9 +31,9 @@ class PolicyNet(torch.nn.Module):
 class ValueNet(torch.nn.Module):
     def __init__(self, stateDim):
         super(ValueNet, self).__init__()
-        self.fc1 = torch.nn.Linear(stateDim, 32)
-        self.fc2 = torch.nn.Linear(32, 32)
-        self.fc3 = torch.nn.Linear(32, 1)
+        self.fc1 = torch.nn.Linear(stateDim, 256)
+        self.fc2 = torch.nn.Linear(256, 128)
+        self.fc3 = torch.nn.Linear(128, 1)
         
         torch.nn.init.xavier_normal_(self.fc1.weight)
         torch.nn.init.xavier_normal_(self.fc2.weight)
@@ -57,6 +57,9 @@ class Agent_PPO:
         self.policyLR = policyLR
         self.valueLR = valueLR
         self.device = device
+        # 记录loss，用于绘图
+        self.policyLosses = []
+        self.valueLosses = []
 
     def genActionVec(self, stateVec):
         mu, sigma = self.policyNet(stateVec)
@@ -97,3 +100,6 @@ class Agent_PPO:
             self.valueOptimizer.zero_grad()
             valueLoss.backward()
             self.valueOptimizer.step()
+            
+            self.policyLosses.append(policyLoss.item())
+            self.valueLosses.append(valueLoss.item())

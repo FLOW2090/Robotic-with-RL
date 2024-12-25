@@ -40,22 +40,29 @@ class WalkingRobot:
         self.movementPenalties = []
         self.rescaleActionPenalties = []
         self.aliveRewards = []
-        self.valueLossList = []
-        self.policyLossList = []
 
         # Position sensors
-        self.accelerometer = self.robot.getDevice('accelerometer')
-        self.accelerometer.enable(self.timestep)
-        self.gyro = self.robot.getDevice('gyro')
-        self.gyro.enable(self.timestep)
-        self.inertialUnit = self.robot.getDevice('inertial unit')
-        self.inertialUnit.enable(self.timestep)
+        self.headNear = self.robot.getDevice('PRM:/r1/c1/c2/c3/p1-Sensor:p1')
+        self.headNear.enable(self.timestep)
+        self.headFar = self.robot.getDevice('PRM:/r1/c1/c2/c3/p2-Sensor:p2')
+        self.headFar.enable(self.timestep)
+        self.chest = self.robot.getDevice('PRM:/p1-Sensor:p1')
+        self.chest.enable(self.timestep)
 
         # Basic motors
         motorNames = [
-            'LAnklePitch', 'RAnklePitch', 'LKneePitch', 'RKneePitch', 'LHipPitch', 'RHipPitch',
-            'LShoulderPitch', 'RShoulderPitch',
+            'PRM:/r4/c1-Joint2:41', 'PRM:/r4/c1/c2-Joint2:42', 'PRM:/r4/c1/c2/c3-Joint2:43',
+            'PRM:/r5/c1-Joint2:51', 'PRM:/r5/c1/c2-Joint2:52', 'PRM:/r5/c1/c2/c3-Joint2:53',
+            'PRM:/r2/c1-Joint2:21', 'PRM:/r2/c1/c2-Joint2:22', 'PRM:/r2/c1/c2/c3-Joint2:23',
+            'PRM:/r3/c1-Joint2:31', 'PRM:/r3/c1/c2-Joint2:32', 'PRM:/r3/c1/c2/c3-Joint2:33'
             ]
+            
+        # motorNames = [
+        #     'Right foreleg J1', 'Right foreleg J2', 'Right foreleg J3', 
+        #     'Right hindleg J1', 'Right hindleg J2', 'Right hindleg J3',
+        #     'Left foreleg J1', 'Left foreleg J2', 'Left foreleg J3',
+        #     'Left hindleg J1', 'Left hindleg J2', 'Left hindleg J3'
+        #     ]
         # motorNames = [
         #     'LAnklePitch', 'RAnklePitch', 'LKneePitch', 'RKneePitch', 'LHipPitch', 'RHipPitch',
         #     'LAnkleRoll', 'RAnkleRoll', 'LHipRoll', 'RHipRoll', 'LHipYawPitch', 'RHipYawPitch',
@@ -72,8 +79,10 @@ class WalkingRobot:
 
         # Basic motor position sensors
         motorSensorNames = [
-            'LAnklePitchS', 'RAnklePitchS', 'LKneePitchS', 'RKneePitchS', 'LHipPitchS', 'RHipPitchS',
-            'LShoulderPitchS', 'RShoulderPitchS',
+            'PRM:/r4/c1-JointSensor2:41', 'PRM:/r4/c1/c2-JointSensor2:42', 'PRM:/r4/c1/c2/c3-JointSensor2:43',
+            'PRM:/r5/c1-JointSensor2:51', 'PRM:/r5/c1/c2-JointSensor2:52', 'PRM:/r5/c1/c2/c3-JointSensor2:53',
+            'PRM:/r2/c1/c2-JointSensor2:22', 'PRM:/r2/c1/c2/c3-JointSensor2:23',
+            'PRM:/r3/c1-JointSensor2:31', 'PRM:/r3/c1/c2-JointSensor2:32', 'PRM:/r3/c1/c2/c3-JointSensor2:33'
             ]
         self.motorSensors = []
         for motorSensorName in motorSensorNames:
@@ -82,7 +91,7 @@ class WalkingRobot:
             self.motorSensors.append(motorSensor)
 
         # Initialize agent
-        stateDim = 8 + len(self.motorSensors)
+        stateDim = len(self.motorSensors)
         actionDim = len(self.motors)
         self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.lmd, self.policyLR, self.valueLR, self.device)
         
@@ -106,7 +115,7 @@ class WalkingRobot:
     def isTerminal(self, step):
         if step >= self.maxStep:
             return True
-        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.25:
+        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.10:
             return True
         return False
 
@@ -135,9 +144,6 @@ class WalkingRobot:
 
     def genStateVec(self):
         stateVec = torch.tensor([], dtype=torch.float32, device=self.device)
-        stateVec = torch.cat((stateVec, torch.tensor(self.accelerometer.getValues(), dtype=torch.float32, device=self.device)))
-        stateVec = torch.cat((stateVec, torch.tensor(self.gyro.getValues()[0:2], dtype=torch.float32, device=self.device)))
-        stateVec = torch.cat((stateVec, torch.tensor(self.inertialUnit.getRollPitchYaw(), dtype=torch.float32, device=self.device)))
         for motorSensor in self.motorSensors:
             stateVec = torch.cat((stateVec, torch.tensor([motorSensor.getValue()], dtype=torch.float32, device=self.device)))
         return stateVec
@@ -151,24 +157,24 @@ class WalkingRobot:
 
     def observeReward(self):
         # Encourage to move forward
-        forwardReward = 200 * (self.position[1] - self.prevPosition[1]) if self.prevPosition is not None else 0
+        forwardReward = 5000 * (self.position[1] - self.prevPosition[1]) if self.prevPosition is not None else 0
         # Penalty for falling
-        fallPenalty = 50 * (self.position[2] < 0.25)
+        fallPenalty = 100 * (self.position[2] < 0.10)
         # Penalty for too large clipping in motor movement
-        rescaleActionPenalty = 0.05 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
+        rescaleActionPenalty = 0.005 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
         # Encourage to stay alive
-        aliveReward = 0.75
+        aliveReward = 2
         # Penalty for too large change in action
         movementPenalty = 0.2 * torch.norm(self.rescaleActionVec(self.actionVec) - self.rescaleActionVec(self.prevActionVec)).item() if self.prevActionVec is not None else 0
         reward = forwardReward - movementPenalty - fallPenalty - rescaleActionPenalty + aliveReward
         reward /= 20
         self.reward = reward
-        # self.rewards.append(reward)
-        # self.forwardRewards.append(forwardReward)
-        # self.fallPenalties.append(fallPenalty)
-        # self.rescaleActionPenalties.append(rescaleActionPenalty)
-        # self.aliveRewards.append(aliveReward)
-        # self.movementPenalties.append(movementPenalty)
+        self.rewards.append(reward)
+        self.forwardRewards.append(forwardReward)
+        self.fallPenalties.append(fallPenalty)
+        self.rescaleActionPenalties.append(rescaleActionPenalty)
+        self.aliveRewards.append(aliveReward)
+        self.movementPenalties.append(movementPenalty)
 
     def plot(self, episode):
         os.makedirs(f'image/{episode}', exist_ok=True)
@@ -188,8 +194,8 @@ class WalkingRobot:
         plt.close()
         
         plt.figure()
-        plt.plot(self.valueLossList, label='Value Loss')
-        plt.plot(self.policyLossList, label='Policy Loss')
+        plt.plot(self.agent.valueLosses, label='Value Loss')
+        plt.plot(self.agent.policyLosses, label='Policy Loss')
         plt.xlabel('Interval')
         plt.ylabel('Loss')
         plt.legend()

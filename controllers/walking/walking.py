@@ -1,3 +1,6 @@
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 from controller import Supervisor
 from walkingRobot import WalkingRobot
 import torch
@@ -28,13 +31,15 @@ while walkingRobot.robot.step(timestep) != -1:
 
     # Terminate, update and reset
     if walkingRobot.isTerminal(step):
+        # 输出训练信息
+        print(f"Episode {episode} finished with reward {walkingRobot.reward} and step {step}")
         walkingRobot.update()
         walkingRobot.reset()
         step = 0
         episode += 1
-        if episode % 500 == 0:
-            pass
-            # walkingRobot.plot(episode)
+        if episode % 50 == 0:
+            # pass
+            walkingRobot.plot(episode)
         continue
 
     # Update agent after having sampled a slice

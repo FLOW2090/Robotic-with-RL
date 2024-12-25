@@ -3,8 +3,8 @@
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/robotstadium/protos/RobotstadiumSoccerField.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/softbank/nao/protos/Nao.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/balls/protos/RobocupSoccerBall.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/sony/aibo/protos/AiboErs7.proto"
 
 WorldInfo {
   info [
@@ -24,8 +24,8 @@ WorldInfo {
   ]
 }
 Viewpoint {
-  orientation 0.22650694145655573 0.611757503135258 -0.7579230586475852 0.908820974236289
-  position -5.0246250436971405 1.0971486035203077 4.539544054149469
+  orientation 0.1904643404665101 0.4102987456893764 -0.8918398254711335 0.9598218428014093
+  position -4.748628931091551 2.2169012597479427 3.61587211486247
   follow "soccer ball"
 }
 TexturedBackground {
@@ -39,17 +39,47 @@ RobotstadiumSoccerField {
   frame1Color 0.9 0.8 0.2
   frame2Color 0.2 0.4 0.8
 }
-DEF Robot Nao {
-  translation 0 -3.99749 0.333006
-  rotation 0 0 -1 -1.57
-  name "NAO RED 0"
-  customColor [
-    1 0 0
-  ]
+DEF Robot AiboErs7 {
+  hidden position_0_0 -0.5236001657048942
+  hidden position_0_1 -3.4587607455698744e-10
+  hidden position_0_2 -2.0717056399006304e-07
+  hidden position_0_3 1.206123873719246e-07
+  hidden position_0_4 -2.068252902276413e-07
+  hidden position_0_5 1.207311770200174e-07
+  hidden rotation_2 0.447216072276409 -0.4472100722751814 -0.7745972733964978 1.8234849258950976
+  hidden position_2_0 -7.358818177038984e-08
+  hidden rotation_3 0 -1 0 7.300048299977715e-08
+  hidden position_3_0 0.5235999267437353
+  hidden rotation_4 1 0 0 0.523599926743735
+  hidden position_4_0 -3.4294966866355026e-10
+  hidden position_4_1 -3.4293279327357595e-10
+  hidden position_12_0 -3.469082798801537e-10
+  hidden rotation_14 0 1 0 2.0647654623614288e-07
+  hidden position_14_0 1.6162293060283332e-07
+  hidden rotation_15 -1 0 0 1.6049041769309358e-07
+  hidden position_15_0 0.5236191241570947
+  hidden rotation_16 0.6546562282223544 -0.6546542282212239 -0.37795907757554137 2.4188820812799667
+  hidden rotation_18 0 1 0 1.1920928955078128e-07
+  hidden position_18_0 1.1829987704335584e-07
+  hidden rotation_19 -1 0 0 1.1920928955078128e-07
+  hidden position_19_0 0.5235980751857378
+  hidden rotation_20 0.44721690032028505 -0.4472099003216802 -0.7745968945988546 1.8234859663761926
+  hidden rotation_22 0 1 0 2.0647654623614288e-07
+  hidden position_22_0 1.6123943936038124e-07
+  hidden rotation_23 1 0 0 1.6049041769309358e-07
+  hidden position_23_0 0.5236531239294961
+  hidden rotation_24 0.654660016171362 -0.6546580161709143 -0.3779459552497881 2.418904081131437
+  hidden rotation_26 0 1 0 1.1920928955078128e-07
+  hidden position_26_0 1.1832028455666188e-07
+  hidden rotation_27 1 0 0 1.1920928955078128e-07
+  hidden position_27_0 0.5235980752578604
+  hidden rotation_28 0.4472169002979386 -0.447209900299334 -0.7745968946246579 1.8234859663439387
+  translation 0.00035732793189336716 -3.9927265182955995 0.14376079587045446
+  rotation -0.0243652607474849 0.025611505951319065 0.9993749971014946 1.521423801349163
   controller "walking"
   supervisor TRUE
 }
 RobocupSoccerBall {
-  translation 3.94177 2.22287 0.07
-  rotation 0.5773502691896258 0.5773502691896258 0.5773502691896258 2.094395
+  translation 3.9417699938270854 2.118451490757169 0.06979889499834331
+  rotation 0.7068301393852108 0.027969771416405085 0.7068301393854097 3.0856675242212344
 }
