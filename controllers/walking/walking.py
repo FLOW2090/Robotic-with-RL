@@ -10,7 +10,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 walkingRobot = WalkingRobot(Supervisor(), device)
 timestep = int(walkingRobot.timestep)
 step = 0
-interval = 4
+interval = 8
 episode = 0
 
 while walkingRobot.robot.step(timestep) != -1:
@@ -18,7 +18,7 @@ while walkingRobot.robot.step(timestep) != -1:
     # At initial state, only to observe s and choose a
     if step == 0:
         walkingRobot.updateState()
-        walkingRobot.act()
+        walkingRobot.act(episode)
         step += 1
         continue
 
@@ -32,20 +32,25 @@ while walkingRobot.robot.step(timestep) != -1:
     # Terminate, update and reset
     if walkingRobot.isTerminal(step):
         # 输出训练信息
+        walkingRobot.observeReward()
+        walkingRobot.addRecord()
         print(f"Episode {episode} finished with reward {walkingRobot.reward} and step {step}")
-        walkingRobot.update()
+        valueLossLen = len(walkingRobot.agent.valueLosses)
+        policyLossLen = len(walkingRobot.agent.policyLosses)
+        print(f"Value Loss: {torch.tensor(walkingRobot.agent.valueLosses[valueLossLen - step//interval:]).mean()}, Policy Loss: {torch.tensor(walkingRobot.agent.policyLosses[policyLossLen - step//interval:]).mean()}")
+        walkingRobot.update(episode)
         walkingRobot.reset()
         step = 0
         episode += 1
-        if episode % 1000 == 0:
+        if episode % 200 == 0:
             # pass
             walkingRobot.plot(episode)
         continue
 
     # Update agent after having sampled a slice
     if step % interval == 0:
-        walkingRobot.update()
+        walkingRobot.update(episode)
 
     # Choose action
-    walkingRobot.act()
+    walkingRobot.act(episode)
     step += 1

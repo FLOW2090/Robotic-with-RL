@@ -1,15 +1,16 @@
 import torch
+import math
 
 class PolicyNet(torch.nn.Module):
-    def __init__(self, stateDim, actionDim):
+    def __init__(self, stateDim, actionDim, actionBounds):
         super(PolicyNet, self).__init__()
         torch.autograd.set_detect_anomaly(True)
-        self.mufc1 = torch.nn.Linear(stateDim, 256)
-        self.mufc2 = torch.nn.Linear(256, 128)
-        self.mufc3 = torch.nn.Linear(128, actionDim)
-        self.sigmafc1 = torch.nn.Linear(stateDim, 256)
-        self.sigmafc2 = torch.nn.Linear(256, 128)
-        self.sigmafc3 = torch.nn.Linear(128, actionDim)
+        self.mufc1 = torch.nn.Linear(stateDim, 64)
+        self.mufc2 = torch.nn.Linear(64, 64)
+        self.mufc3 = torch.nn.Linear(64, actionDim)
+        self.sigmafc1 = torch.nn.Linear(stateDim, 64)
+        self.sigmafc2 = torch.nn.Linear(64, 64)
+        self.sigmafc3 = torch.nn.Linear(64, actionDim)
 
         torch.nn.init.xavier_normal_(self.mufc1.weight)
         torch.nn.init.xavier_normal_(self.mufc2.weight)
@@ -18,22 +19,26 @@ class PolicyNet(torch.nn.Module):
         torch.nn.init.xavier_normal_(self.sigmafc2.weight)
         torch.nn.init.xavier_normal_(self.sigmafc3.weight)
 
-    def forward(self, state):
+        self.actionBounds = actionBounds
+
+    def forward(self, state, episode):
         mu1 = torch.tanh(self.mufc1(state))
         mu2 = torch.tanh(self.mufc2(mu1))
-        mu = self.mufc3(mu2)
-        sigma1 = torch.tanh(self.sigmafc1(state))
-        sigma2 = torch.tanh(self.sigmafc2(sigma1))
-        sigma = torch.exp(self.sigmafc3(sigma2))
+        mu = torch.tanh(self.mufc3(mu2))
+
+        # sigma1 = torch.tanh(self.sigmafc1(state))
+        # sigma2 = torch.tanh(self.sigmafc2(sigma1))
+        # sigma = torch.exp(self.sigmafc3(sigma2))
+        sigma = math.exp(-episode/500) * self.actionBounds.max(1)[0]
         return mu, sigma
 
 
 class ValueNet(torch.nn.Module):
     def __init__(self, stateDim):
         super(ValueNet, self).__init__()
-        self.fc1 = torch.nn.Linear(stateDim, 256)
-        self.fc2 = torch.nn.Linear(256, 128)
-        self.fc3 = torch.nn.Linear(128, 1)
+        self.fc1 = torch.nn.Linear(stateDim, 64)
+        self.fc2 = torch.nn.Linear(64, 64)
+        self.fc3 = torch.nn.Linear(64, 1)
         
         torch.nn.init.xavier_normal_(self.fc1.weight)
         torch.nn.init.xavier_normal_(self.fc2.weight)
@@ -47,13 +52,14 @@ class ValueNet(torch.nn.Module):
 
 class Agent_PPO:
 
-    def __init__(self, stateDim, actionDim, gamma, lmd, policyLR, valueLR, device):
-        self.policyNet = PolicyNet(stateDim, actionDim).to(device)
+    def __init__(self, stateDim, actionDim, gamma, lmd, epsilon, policyLR, valueLR, actionBounds, device):
+        self.policyNet = PolicyNet(stateDim, actionDim, actionBounds).to(device)
         self.valueNet = ValueNet(stateDim).to(device)
         self.policyOptimizer = torch.optim.Adam(self.policyNet.parameters(), lr=policyLR)
         self.valueOptimizer = torch.optim.Adam(self.valueNet.parameters(), lr=valueLR)
         self.gamma = gamma
         self.lmd = lmd
+        self.epsilon = epsilon
         self.policyLR = policyLR
         self.valueLR = valueLR
         self.device = device
@@ -61,22 +67,22 @@ class Agent_PPO:
         self.policyLosses = []
         self.valueLosses = []
 
-    def genActionVec(self, stateVec):
-        mu, sigma = self.policyNet(stateVec)
+    def genActionVec(self, stateVec, episode):
+        mu, sigma = self.policyNet(stateVec, episode)
         actionVec = torch.normal(mu, sigma).to(self.device)
         return actionVec
 
     def genValue(self, stateVec):
         return self.valueNet(stateVec)
 
-    def genLogProb(self, actionVec, stateVec):
-        mu, sigma = self.policyNet(stateVec)
+    def genLogProb(self, actionVec, stateVec, episode):
+        mu, sigma = self.policyNet(stateVec, episode)
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
     
-    def update(self, trajectory):
+    def update(self, trajectory, episode):
         # Calculate old policy
         with torch.no_grad():
-            oldLogProbs = [self.genLogProb(record.actionVec, record.stateVec) for record in trajectory[:-1]]
+            oldLogProbs = [self.genLogProb(record.actionVec, record.stateVec, episode) for record in trajectory[:-1]]
 
         # Update
         for index in range(len(trajectory)-1):
@@ -88,14 +94,15 @@ class Agent_PPO:
                     advantage += (self.gamma * self.lmd) ** (t - index) * delta
             # Calculate ratio
             oldLogProb = oldLogProbs[index]
-            logProb = self.genLogProb(trajectory[index].actionVec, trajectory[index].stateVec)
+            logProb = self.genLogProb(trajectory[index].actionVec, trajectory[index].stateVec, episode)
             ratio = torch.exp(logProb - oldLogProb)
             # Calculate policy loss
-            policyLoss = -torch.min(ratio * advantage, torch.clamp(ratio, 1 - self.lmd, 1 + self.lmd) * advantage).mean()
+            policyLoss = -torch.min(ratio * advantage, torch.clamp(ratio, 1 - self.epsilon, 1 + self.epsilon) * advantage).mean()
             self.policyOptimizer.zero_grad()
             policyLoss.backward()
             self.policyOptimizer.step()
             # Calculate value loss
+            # print(advantage.item(), self.genValue(trajectory[index].stateVec).item())
             valueLoss = -advantage * self.genValue(trajectory[index].stateVec)
             self.valueOptimizer.zero_grad()
             valueLoss.backward()

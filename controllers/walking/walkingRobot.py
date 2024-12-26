@@ -22,8 +22,9 @@ class WalkingRobot:
         self.maxStep = 512
         self.gamma = 0.99
         self.lmd = 0.97
+        self.epsilon = 0.1
         self.policyLR = 3e-4
-        self.valueLR = 1e-3
+        self.valueLR = 1e-4
 
         # Data for training
         self.position = None
@@ -82,7 +83,7 @@ class WalkingRobot:
         # Initialize agent
         stateDim = 8 + len(self.motorSensors)
         actionDim = len(self.motors)
-        self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.lmd, self.policyLR, self.valueLR, self.device)
+        self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.lmd, self.epsilon, self.policyLR, self.valueLR, self.actionBounds, self.device)
         
         # # 加载模型参数
         # try:
@@ -109,16 +110,16 @@ class WalkingRobot:
         return False
 
     # Generate new action based on current state
-    def act(self):
-        self.actionVec = self.agent.genActionVec(self.stateVec).detach()
+    def act(self, episode):
+        self.actionVec = self.agent.genActionVec(self.stateVec, episode).detach()
         rescaledActionVec = self.rescaleActionVec(self.actionVec)
         self.takeAction(rescaledActionVec)
 
-    def update(self):
+    def update(self, episode):
         # Add only a state to the trajectory
         self.trajectory.append(Record(self.stateVec))
         # Update agent
-        self.agent.update(self.trajectory)
+        self.agent.update(self.trajectory, episode)
         self.trajectory = []
 
     # Update state and save previous state and action
@@ -151,15 +152,15 @@ class WalkingRobot:
         # Encourage to move forward
         forwardReward = 200 * (self.position[1] - self.prevPosition[1]) if self.prevPosition is not None else 0
         # Penalty for falling
-        fallPenalty = 50 * (self.position[2] < 0.25)
+        fallPenalty = 25 * (self.position[2] < 0.20)
         # Penalty for too large clipping in motor movement
         rescaleActionPenalty = 0.05 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
-        if rescaleActionPenalty > 10:
-            rescaleActionPenalty = 10
+        if rescaleActionPenalty > 25:
+            rescaleActionPenalty = 25
         # Encourage to stay alive
         aliveReward = 0.75
         # Penalty for too large change in action
-        movementPenalty = 0.2 * torch.norm(self.rescaleActionVec(self.actionVec) - self.rescaleActionVec(self.prevActionVec)).item() if self.prevActionVec is not None else 0
+        movementPenalty = 0.05 * torch.norm(self.rescaleActionVec(self.actionVec) - self.rescaleActionVec(self.prevActionVec)).item() if self.prevActionVec is not None else 0
         reward = forwardReward - movementPenalty - fallPenalty - rescaleActionPenalty + aliveReward
         reward /= 20
         self.reward = reward
@@ -172,11 +173,11 @@ class WalkingRobot:
 
     def plot(self, episode):
         os.makedirs(f'image/{episode}', exist_ok=True)
-        # os.makedirs(f'model/{episode}', exist_ok=True)
+        os.makedirs(f'model/{episode}', exist_ok=True)
 
-        # # 保存模型参数
-        # torch.save(self.agent.policyNet.state_dict(), f'model/{episode}/policyNet.pth')
-        # torch.save(self.agent.valueNet.state_dict(), f'model/{episode}/valueNet.pth')
+        # 保存模型参数
+        torch.save(self.agent.policyNet.state_dict(), f'model/{episode}/policyNet.pth')
+        torch.save(self.agent.valueNet.state_dict(), f'model/{episode}/valueNet.pth')
 
         # 绘制奖励曲线并保存
         plt.figure()
@@ -188,8 +189,8 @@ class WalkingRobot:
         plt.close()
         
         plt.figure()
-        plt.plot(self.agent.valueLosses, label='Value Loss')
-        plt.plot(self.agent.policyLosses, label='Policy Loss')
+        plt.plot(self.agent.valueLosses, label='Value Loss', alpha=0.5)
+        plt.plot(self.agent.policyLosses, label='Policy Loss', alpha=0.5)
         plt.xlabel('Interval')
         plt.ylabel('Loss')
         plt.legend()
@@ -198,12 +199,11 @@ class WalkingRobot:
         plt.close()
 
         plt.figure()
-        plt.plot(self.forwardRewards, label='Forward Reward')
-        plt.plot(self.fallPenalties, label='Fall Penalty')
-        plt.plot(self.heightPenalties, label='Height Penalty')
-        plt.plot(self.movementPenalties, label='Movement Penalty')
-        plt.plot(self.rescaleActionPenalties, label='Rescale Action Penalty')
-        plt.plot(self.aliveRewards, label='Alive Reward')
+        plt.plot(self.forwardRewards, label='Forward Reward', alpha=0.5)
+        plt.plot(self.fallPenalties, label='Fall Penalty', alpha=0.5)
+        plt.plot(self.movementPenalties, label='Movement Penalty', alpha=0.5)
+        plt.plot(self.rescaleActionPenalties, label='Rescale Action Penalty', alpha=0.5)
+        plt.plot(self.aliveRewards, label='Alive Reward', alpha=0.5)
         plt.xlabel('Step')
         plt.ylabel('Reward/Penalty')
         plt.legend()
