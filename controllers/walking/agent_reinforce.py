@@ -1,7 +1,8 @@
 import torch
+import math
 
 class PolicyNet(torch.nn.Module):
-    def __init__(self, stateDim, actionDim):
+    def __init__(self, stateDim, actionDim, actionBounds):
         super(PolicyNet, self).__init__()
         # 共享特征提取层
         self.shared_fc1 = torch.nn.Linear(stateDim, 1024)
@@ -20,15 +21,16 @@ class PolicyNet(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.shared_fc3.weight)
         torch.nn.init.xavier_uniform_(self.mu_fc.weight)
         torch.nn.init.xavier_uniform_(self.sigma_fc.weight)
+        self.actionBounds = actionBounds
 
-    def forward(self, state):
+    def forward(self, state, episode):
         # 提取共享特征
         shared = torch.relu(self.shared_fc1(state))
         shared = torch.relu(self.shared_fc2(shared))
         shared = torch.relu(self.shared_fc3(shared))
         
         mu = self.mu_fc(shared)
-        sigma = torch.exp(self.sigma_fc(shared))
+        sigma = math.exp(-episode/500) * self.actionBounds.max(1)[0]
         
         return mu, sigma
 
@@ -41,14 +43,14 @@ class Agent_REINFORCE:
         self.device = device
         self.policyLossList = []
 
-    def genActionVec(self, stateVec):
+    def genActionVec(self, stateVec, episode):
         assert not torch.isnan(stateVec).any()
-        mu, sigma = self.policyNet(stateVec)
+        mu, sigma = self.policyNet(stateVec, episode)
         actionVec = torch.normal(mu, sigma).to(self.device)
         return actionVec
 
-    def genLogProb(self, actionVec, stateVec):
-        mu, sigma = self.policyNet(stateVec)
+    def genLogProb(self, actionVec, stateVec, episode):
+        mu, sigma = self.policyNet(stateVec, episode)
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec).sum(dim=-1)  # Sum over action dimensions
 
     def computeReturns(self, rewards):
@@ -62,7 +64,7 @@ class Agent_REINFORCE:
             returns.insert(0, G)
         return torch.tensor(returns, dtype=torch.float32, device=self.device)
 
-    def update(self, states, actions, rewards):
+    def update(self, states, actions, rewards, episode):
         """
         使用REINFORCE算法更新策略网络。
         - states: 每个时间步的状态
@@ -75,7 +77,7 @@ class Agent_REINFORCE:
         # 计算每个时间步的log概率和策略损失
         policyLoss = 0
         for state, action, G in zip(states, actions, returns):
-            log_prob = self.genLogProb(action, state)
+            log_prob = self.genLogProb(action, state, episode)
             policyLoss += -log_prob * G  # REINFORCE策略梯度公式
 
         # 优化策略网络

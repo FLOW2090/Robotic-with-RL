@@ -1,9 +1,10 @@
 import torch
+import math
 
 # actor
 class PolicyNet(torch.nn.Module):
 
-    def __init__(self, stateDim, actionDim):
+    def __init__(self, stateDim, actionDim, actionBounds):
         super(PolicyNet, self).__init__()
         self.mufc1 = torch.nn.Linear(stateDim, 64)
         self.mufc2 = torch.nn.Linear(64, 64)
@@ -11,17 +12,16 @@ class PolicyNet(torch.nn.Module):
         self.sigmafc1 = torch.nn.Linear(stateDim, 64)
         self.sigmafc2 = torch.nn.Linear(64, 64)
         self.sigmafc3 = torch.nn.Linear(64, actionDim)
+        self.actionBounds = actionBounds
 
-    def forward(self, state):
+    def forward(self, state, episode):
         mu = torch.relu(self.mufc1(state))
         mu = torch.relu(self.mufc2(mu))
-        mu = self.mufc3(mu)
-        sigma = torch.relu(self.sigmafc1(state))
-        sigma = torch.relu(self.sigmafc2(sigma))
-        sigma = torch.exp(self.sigmafc3(sigma))
-        # Sometimes it will encounter nan due to exp for some unknown reason...
-        if not torch.all(sigma > 0):
-            print(sigma)
+        mu = torch.tanh(self.mufc3(mu))
+        # sigma1 = torch.tanh(self.sigmafc1(state))
+        # sigma2 = torch.tanh(self.sigmafc2(sigma1))
+        # sigma = torch.exp(self.sigmafc3(sigma2))
+        sigma = math.exp(-episode/500) * self.actionBounds.max(1)[0]
         return mu, sigma
 
 # critic
@@ -41,8 +41,8 @@ class ValueNet(torch.nn.Module):
 # actor-critic agent
 class Agent_AC:
 
-    def __init__(self, stateDim, actionDim, gamma, policyLR, valueLR, device):
-        self.policyNet = PolicyNet(stateDim, actionDim).to(device)
+    def __init__(self, stateDim, actionDim, gamma, policyLR, valueLR, actionBounds, device):
+        self.policyNet = PolicyNet(stateDim, actionDim, actionBounds).to(device)
         self.valueNet = ValueNet(stateDim).to(device)
         self.policyOptimizer = torch.optim.Adam(self.policyNet.parameters(), lr=policyLR)
         self.valueOptimizer = torch.optim.Adam(self.valueNet.parameters(), lr=valueLR)
@@ -54,9 +54,9 @@ class Agent_AC:
         self.policyLossList = []
         self.sigmaList = []
 
-    def genActionVec(self, stateVec):
+    def genActionVec(self, stateVec, episode):
         assert(not torch.isnan(stateVec).any())
-        mu, sigma = self.policyNet(stateVec)
+        mu, sigma = self.policyNet(stateVec, episode)
         self.sigmaList.append(sigma.mean().item())
         actionVec = torch.normal(mu, sigma).to(self.device)
         return actionVec
@@ -64,11 +64,11 @@ class Agent_AC:
     def genValue(self, stateVec):
         return self.valueNet(stateVec)
 
-    def genLogProb(self, actionVec, stateVec):
+    def genLogProb(self, actionVec, stateVec, episode):
         mu, sigma = self.policyNet(stateVec)
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
 
-    def update(self, reward, prevStateVec, stateVec, actionVec, step):
+    def update(self, reward, prevStateVec, stateVec, actionVec, step, episode):
         with torch.no_grad():
             delta = (reward + self.gamma * self.genValue(stateVec) - self.genValue(prevStateVec))
         valueLoss = -delta * self.genValue(prevStateVec)
@@ -76,7 +76,7 @@ class Agent_AC:
         self.valueOptimizer.zero_grad()
         valueLoss.backward()
         self.valueOptimizer.step()
-        policyLoss = -delta * self.gamma ** step * self.genLogProb(actionVec, prevStateVec).mean()
+        policyLoss = -delta * self.gamma ** step * self.genLogProb(actionVec, prevStateVec, episode).mean()
         self.policyLossList.append(policyLoss.item())
         self.policyOptimizer.zero_grad()
         policyLoss.backward()

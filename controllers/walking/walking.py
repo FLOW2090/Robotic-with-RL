@@ -38,7 +38,7 @@ while walkingRobot.robot.step(timestep) != -1:
     if step != 0:
         walkingRobot.accumulateReward(int(step/interval))
     if walkingRobot.isTerminal(step):
-        walkingRobot.update(step/interval)
+        walkingRobot.update(step/interval, episode)
         episode += 1
         rewards.append(walkingRobot.cumulatedReward)
         forwardRewards.append(walkingRobot.cumulatedForwardReward)
@@ -172,6 +172,6 @@ while walkingRobot.robot.step(timestep) != -1:
     else:
         if step % interval == 0:
             if step != 0:
-                walkingRobot.update(step/interval)
-            walkingRobot.act()
+                walkingRobot.update(step/interval, episode)
+            walkingRobot.act(episode)
         step += 1

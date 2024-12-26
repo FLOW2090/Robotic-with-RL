@@ -103,14 +103,14 @@ class WalkingRobot:
             return True
         return False
 
-    def act(self):
+    def act(self, episode):
         self.prevActionVec = self.actionVec
-        self.actionVec = self.agent.genActionVec(self.stateVec)
+        self.actionVec = self.agent.genActionVec(self.stateVec, episode)
         rescaledActionVec = self.rescaleActionVec(self.actionVec)
         self.takeAction(rescaledActionVec)
 
-    def update(self, step):
-        self.agent.update(self.reward, self.prevStateVec, self.stateVec, self.actionVec, step)
+    def update(self, step, episode):
+        self.agent.update(self.reward, self.prevStateVec, self.stateVec, self.actionVec, step, episode)
         self.reward = 0
 
     def updateState(self):
