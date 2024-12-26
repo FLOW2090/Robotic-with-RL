@@ -16,7 +16,7 @@ class WalkingRobot:
         self.maxStep = 512
         self.gamma = 0.99
         self.policyLR = 3e-4
-        self.valueLR = 1e-3
+        self.valueLR = 5e-4
         self.reward = 0
         self.cumulatedReward = 0
         self.cumulatedForwardReward = 0
@@ -68,7 +68,7 @@ class WalkingRobot:
         # Initialize agent
         stateDim = 8 + len(self.motorSensors)
         actionDim = len(self.motors)
-        self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.policyLR, self.valueLR, self.device)
+        self.agent = Agent_AC(stateDim, actionDim, self.gamma, self.policyLR, self.valueLR, self.actionBounds, self.device)
         
         # # 加载模型参数
         # try:

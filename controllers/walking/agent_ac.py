@@ -17,11 +17,11 @@ class PolicyNet(torch.nn.Module):
     def forward(self, state, episode):
         mu = torch.relu(self.mufc1(state))
         mu = torch.relu(self.mufc2(mu))
-        mu = torch.tanh(self.mufc3(mu))
+        mu = torch.sigmoid(self.mufc3(mu)) * (self.actionBounds[:, 1] - self.actionBounds[:, 0]) + self.actionBounds[:, 0]
         # sigma1 = torch.tanh(self.sigmafc1(state))
         # sigma2 = torch.tanh(self.sigmafc2(sigma1))
         # sigma = torch.exp(self.sigmafc3(sigma2))
-        sigma = math.exp(-episode/500) * self.actionBounds.max(1)[0]
+        sigma = math.exp(-episode/500) * (self.actionBounds[:, 1] - self.actionBounds[:, 0]) / 2 + 1e-3
         return mu, sigma
 
 # critic
@@ -65,7 +65,7 @@ class Agent_AC:
         return self.valueNet(stateVec)
 
     def genLogProb(self, actionVec, stateVec, episode):
-        mu, sigma = self.policyNet(stateVec)
+        mu, sigma = self.policyNet(stateVec, episode)
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
 
     def update(self, reward, prevStateVec, stateVec, actionVec, step, episode):
