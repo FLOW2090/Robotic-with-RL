@@ -1,24 +1,28 @@
+import math
+
 import torch
 
 class PolicyNet(torch.nn.Module):
-    def __init__(self, stateDim, actionDim):
+    def __init__(self, stateDim, actionDim, actionBound):
         super(PolicyNet, self).__init__()
-        self.fc1 = torch.nn.Linear(stateDim, 64)
-        self.fc2 = torch.nn.Linear(64, 64)
+        self.fc1 = torch.nn.Linear(stateDim, 256)
+        self.fc2 = torch.nn.Linear(256, 64)
         self.mean_layer = torch.nn.Linear(64, actionDim)  # 输出均值
         self.std_layer = torch.nn.Linear(64, actionDim)  # 输出标准差
 
-    def forward(self, state):
-        x = torch.relu(self.fc1(state))
-        x = torch.relu(self.fc2(x))
-        mean = self.mean_layer(x)
-        std = torch.exp(self.std_layer(x))
+        self.actionBound = actionBound
+
+    def forward(self, state, episode):
+        x = torch.tanh(self.fc1(state))
+        x = torch.tanh(self.fc2(x))
+        mean = torch.sigmoid(self.mean_layer(x)) * (self.actionBound[:, 1] - self.actionBound[:, 0]) + self.actionBound[:, 0]
+        std = math.exp(-episode/500) * (self.actionBound[:, 1] - self.actionBound[:, 0]) / 2 + 1e-3
         return mean, std
 
 
 class Agent_REINFORCE:
-    def __init__(self, stateDim, actionDim, gamma, policyLR, device):
-        self.policyNet = PolicyNet(stateDim, actionDim).to(device)
+    def __init__(self, stateDim, actionDim, gamma, policyLR, device, actionBound):
+        self.policyNet = PolicyNet(stateDim, actionDim, actionBound).to(device)
         self.policyOptimizer = torch.optim.Adam(self.policyNet.parameters(), lr=policyLR)
         self.gamma = gamma
         self.device = device
@@ -27,20 +31,20 @@ class Agent_REINFORCE:
         self.rewardList = []
         self.actionLogProbList = []
 
-    def genActionVec(self, stateVec):
+    def genActionVec(self, stateVec, episode):
         assert (not torch.isnan(stateVec).any())
-        mu, sigma = self.policyNet(stateVec)
+        mu, sigma = self.policyNet(stateVec, episode)
         actionVec = torch.normal(mu, sigma).to(self.device)
         return actionVec
 
-    def genLogProb(self, actionVec, stateVec):
-        mu, sigma = self.policyNet(stateVec)
+    def genLogProb(self, actionVec, stateVec, episode):
+        mu, sigma = self.policyNet(stateVec, episode)
 
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
 
-    def update(self, reward, prevStateVec, stateVec, actionVec, step, isTerminal=False):
+    def update(self, reward, prevStateVec, stateVec, actionVec, step, episode, isTerminal=False):
         self.rewardList.append(reward)
-        action_log_prob = self.genLogProb(actionVec, prevStateVec)
+        action_log_prob = self.genLogProb(actionVec, prevStateVec, episode)
         self.actionLogProbList.append(action_log_prob)
         if isTerminal:
             G = 0

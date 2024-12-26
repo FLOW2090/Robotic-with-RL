@@ -30,7 +30,7 @@ while walkingRobot.robot.step(timestep) != -1:
     if step != 0:
         walkingRobot.accumulateReward(step)
     if walkingRobot.isTerminal(step):
-        walkingRobot.update(step)
+        walkingRobot.update(step, episode)
         episode += 1
         rewards.append(walkingRobot.cumulatedReward)
         forwardRewards.append(walkingRobot.cumulatedForwardReward)
@@ -51,7 +51,7 @@ while walkingRobot.robot.step(timestep) != -1:
             walkingRobot.agent.freeze_actor = False
             
         # 每1000个episode保存一次图像和模型参数
-        if episode % 500 == 0:
+        if episode % 200 == 0:
             # 创建目录
             os.makedirs(f'image/{episode}', exist_ok=True)
             # os.makedirs(f'model/{episode}', exist_ok=True)
@@ -104,6 +104,6 @@ while walkingRobot.robot.step(timestep) != -1:
     else:
         if step % interval == 0:
             if step != 0:
-                walkingRobot.update(step)
-            walkingRobot.act()
+                walkingRobot.update(step, episode)
+            walkingRobot.act(episode)
         step += 1

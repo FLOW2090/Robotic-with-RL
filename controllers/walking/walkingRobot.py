@@ -16,7 +16,7 @@ class WalkingRobot:
         self.prevPosition = None
         self.maxStep = 512
         self.gamma = 0.99
-        self.policyLR = 1e-7
+        self.policyLR = 1e-4
         self.valueLR = 1e-6
         self.reward = 0
         self.cumulatedReward = 0
@@ -72,7 +72,7 @@ class WalkingRobot:
         stateDim = 8 + len(self.motorSensors)
         actionDim = len(self.motors)
         # self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.policyLR, self.valueLR, self.device)
-        self.agent = Agent_REINFORCE(stateDim, actionDim, self.gamma, self.policyLR, self.device)
+        self.agent = Agent_REINFORCE(stateDim, actionDim, self.gamma, self.policyLR, self.device, self.actionBounds)
         
         # # 加载模型参数
         # try:
@@ -109,13 +109,13 @@ class WalkingRobot:
             return True
         return False
 
-    def act(self):
-        self.actionVec = self.agent.genActionVec(self.stateVec)
+    def act(self, episode):
+        self.actionVec = self.agent.genActionVec(self.stateVec, episode)
         rescaledActionVec = self.rescaleActionVec(self.actionVec)
         self.takeAction(rescaledActionVec)
 
-    def update(self, step):
-        self.agent.update(self.reward, self.prevStateVec, self.stateVec, self.actionVec, step, self.isTerminal(step))
+    def update(self, step, episode):
+        self.agent.update(self.reward, self.prevStateVec, self.stateVec, self.actionVec, step, episode, self.isTerminal(step))
         self.reward = 0
 
     def updateState(self):
