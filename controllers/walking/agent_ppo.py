@@ -24,12 +24,12 @@ class PolicyNet(torch.nn.Module):
     def forward(self, state, episode):
         mu1 = torch.tanh(self.mufc1(state))
         mu2 = torch.tanh(self.mufc2(mu1))
-        mu = torch.tanh(self.mufc3(mu2))
+        mu = torch.sigmoid(self.mufc3(mu2)) * (self.actionBounds[:, 1] - self.actionBounds[:, 0]) + self.actionBounds[:, 0]
 
         # sigma1 = torch.tanh(self.sigmafc1(state))
         # sigma2 = torch.tanh(self.sigmafc2(sigma1))
         # sigma = torch.exp(self.sigmafc3(sigma2))
-        sigma = math.exp(-episode/500) * self.actionBounds.max(1)[0]
+        sigma = math.exp(-episode/500) * (self.actionBounds[:, 1] - self.actionBounds[:, 0]) / 2 + 1e-3
         return mu, sigma
 
 

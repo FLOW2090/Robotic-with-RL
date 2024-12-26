@@ -24,7 +24,7 @@ class WalkingRobot:
         self.lmd = 0.97
         self.epsilon = 0.1
         self.policyLR = 3e-4
-        self.valueLR = 1e-4
+        self.valueLR = 5e-4
 
         # Data for training
         self.position = None
