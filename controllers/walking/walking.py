@@ -27,10 +27,6 @@ noMovementPenalties = []
 
 while walkingRobot.robot.step(timestep) != -1:
     walkingRobot.updateState()
-    if step % interval == 0:
-        if step != 0:
-            walkingRobot.update(step)
-        walkingRobot.act()
     if step != 0:
         walkingRobot.accumulateReward(step)
     if walkingRobot.isTerminal(step):
@@ -106,4 +102,8 @@ while walkingRobot.robot.step(timestep) != -1:
             plt.savefig(f'image/{episode}/policy_loss_curve.png')
             plt.close()
     else:
+        if step % interval == 0:
+            if step != 0:
+                walkingRobot.update(step)
+            walkingRobot.act()
         step += 1

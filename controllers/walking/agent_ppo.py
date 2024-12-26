@@ -86,7 +86,7 @@ class Agent_PPO:
         
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
     
-    def update(self, reward, prevStateVec, stateVec, actionVec, step):
+    def update(self, reward, prevStateVec, stateVec, actionVec, step, isTerminal=False):
         # Critic 更新
         # delta = (reward + self.gamma * self.genValue(stateVec).detach() - self.genValue(prevStateVec))
         # valueLoss = delta ** 2

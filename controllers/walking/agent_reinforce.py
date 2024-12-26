@@ -3,34 +3,17 @@ import torch
 class PolicyNet(torch.nn.Module):
     def __init__(self, stateDim, actionDim):
         super(PolicyNet, self).__init__()
-        # 共享特征提取层
-        self.shared_fc1 = torch.nn.Linear(stateDim, 1024)
-        self.shared_fc2 = torch.nn.Linear(1024, 256)
-        self.shared_fc3 = torch.nn.Linear(256, 64)
-
-        # 均值（mu）分支
-        self.mu_fc = torch.nn.Linear(64, actionDim)
-        
-        # 标准差（sigma）分支
-        self.sigma_fc = torch.nn.Linear(64, actionDim)
-        
-        # 初始化权重
-        torch.nn.init.xavier_uniform_(self.shared_fc1.weight)
-        torch.nn.init.xavier_uniform_(self.shared_fc2.weight)
-        torch.nn.init.xavier_uniform_(self.shared_fc3.weight)
-        torch.nn.init.xavier_uniform_(self.mu_fc.weight)
-        torch.nn.init.xavier_uniform_(self.sigma_fc.weight)
+        self.fc1 = torch.nn.Linear(stateDim, 64)
+        self.fc2 = torch.nn.Linear(64, 64)
+        self.mean_layer = torch.nn.Linear(64, actionDim)  # 输出均值
+        self.std_layer = torch.nn.Linear(64, actionDim)  # 输出标准差
 
     def forward(self, state):
-        # 提取共享特征
-        shared = torch.relu(self.shared_fc1(state))
-        shared = torch.relu(self.shared_fc2(shared))
-        shared = torch.relu(self.shared_fc3(shared))
-        
-        mu = self.mu_fc(shared)
-        sigma = torch.exp(self.sigma_fc(shared))
-        
-        return mu, sigma
+        x = torch.relu(self.fc1(state))
+        x = torch.relu(self.fc2(x))
+        mean = self.mean_layer(x)
+        std = torch.exp(self.std_layer(x))
+        return mean, std
 
 
 class Agent_REINFORCE:
@@ -40,47 +23,42 @@ class Agent_REINFORCE:
         self.gamma = gamma
         self.device = device
         self.policyLossList = []
+        self.valueLossList = []
+        self.rewardList = []
+        self.actionLogProbList = []
 
     def genActionVec(self, stateVec):
-        assert not torch.isnan(stateVec).any()
+        assert (not torch.isnan(stateVec).any())
         mu, sigma = self.policyNet(stateVec)
         actionVec = torch.normal(mu, sigma).to(self.device)
         return actionVec
 
     def genLogProb(self, actionVec, stateVec):
         mu, sigma = self.policyNet(stateVec)
-        return torch.distributions.Normal(mu, sigma).log_prob(actionVec).sum(dim=-1)  # Sum over action dimensions
 
-    def computeReturns(self, rewards):
-        """
-        计算每个时间步的累积回报（Return）。
-        """
-        returns = []
-        G = 0
-        for reward in reversed(rewards):
-            G = reward + self.gamma * G
-            returns.insert(0, G)
-        return torch.tensor(returns, dtype=torch.float32, device=self.device)
+        return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
 
-    def update(self, states, actions, rewards):
-        """
-        使用REINFORCE算法更新策略网络。
-        - states: 每个时间步的状态
-        - actions: 每个时间步执行的动作
-        - rewards: 每个时间步的即时奖励
-        """
-        # 计算累积回报
-        returns = self.computeReturns(rewards)
+    def update(self, reward, prevStateVec, stateVec, actionVec, step, isTerminal=False):
+        self.rewardList.append(reward)
+        action_log_prob = self.genLogProb(actionVec, prevStateVec)
+        self.actionLogProbList.append(action_log_prob)
+        if isTerminal:
+            G = 0
+            returns = []
+            for r in self.rewardList[::-1]:
+                G = r + self.gamma * G
+                returns.insert(0, G)
+            returns = torch.tensor(returns)
+            returns = (returns - returns.mean()) / (returns.std() + 1e-5)
+            policyLoss = []
+            for log_prob, R in zip(self.actionLogProbList, returns):
+                policyLoss.append(-log_prob * R)
+            policyLoss = torch.cat(policyLoss).sum()
+            self.policyLossList.append(policyLoss.item())
+            self.policyOptimizer.zero_grad()
+            policyLoss.backward()
+            self.policyOptimizer.step()
 
-        # 计算每个时间步的log概率和策略损失
-        policyLoss = 0
-        for state, action, G in zip(states, actions, returns):
-            log_prob = self.genLogProb(action, state)
-            policyLoss += -log_prob * G  # REINFORCE策略梯度公式
+            self.rewardList = []
+            self.actionLogProbList = []
 
-        # 优化策略网络
-        policyLoss /= len(states)  # 取平均，稳定梯度
-        self.policyLossList.append(policyLoss.item())
-        self.policyOptimizer.zero_grad()
-        policyLoss.backward()
-        self.policyOptimizer.step()

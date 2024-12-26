@@ -1,5 +1,6 @@
 from agent_ac import Agent_AC
 from agent_ppo import Agent_PPO
+from agent_reinforce import Agent_REINFORCE
 import torch
 
 class WalkingRobot:
@@ -70,7 +71,8 @@ class WalkingRobot:
         # Initialize agent
         stateDim = 8 + len(self.motorSensors)
         actionDim = len(self.motors)
-        self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.policyLR, self.valueLR, self.device)
+        # self.agent = Agent_PPO(stateDim, actionDim, self.gamma, self.policyLR, self.valueLR, self.device)
+        self.agent = Agent_REINFORCE(stateDim, actionDim, self.gamma, self.policyLR, self.device)
         
         # # 加载模型参数
         # try:
@@ -113,7 +115,7 @@ class WalkingRobot:
         self.takeAction(rescaledActionVec)
 
     def update(self, step):
-        self.agent.update(self.reward, self.prevStateVec, self.stateVec, self.actionVec, step)
+        self.agent.update(self.reward, self.prevStateVec, self.stateVec, self.actionVec, step, self.isTerminal(step))
         self.reward = 0
 
     def updateState(self):

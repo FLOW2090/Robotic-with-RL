@@ -64,7 +64,7 @@ class Agent_AC:
         mu, sigma = self.policyNet(stateVec)
         return torch.distributions.Normal(mu, sigma).log_prob(actionVec)
 
-    def update(self, reward, prevStateVec, stateVec, actionVec, step):
+    def update(self, reward, prevStateVec, stateVec, actionVec, step, isTerminal=False):
         delta = (reward + self.gamma * self.genValue(stateVec) - self.genValue(prevStateVec)).detach()
         valueLoss = -delta * self.genValue(prevStateVec)
         self.valueOptimizer.zero_grad()
