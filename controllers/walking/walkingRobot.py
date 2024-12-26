@@ -40,8 +40,6 @@ class WalkingRobot:
         self.movementPenalties = []
         self.rescaleActionPenalties = []
         self.aliveRewards = []
-        self.valueLossList = []
-        self.policyLossList = []
 
         # Position sensors
         self.accelerometer = self.robot.getDevice('accelerometer')
@@ -106,7 +104,7 @@ class WalkingRobot:
     def isTerminal(self, step):
         if step >= self.maxStep:
             return True
-        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.25:
+        if self.robot.getFromDef('Robot').getField('translation').getSFVec3f()[2] < 0.20:
             return True
         return False
 
@@ -156,6 +154,8 @@ class WalkingRobot:
         fallPenalty = 50 * (self.position[2] < 0.25)
         # Penalty for too large clipping in motor movement
         rescaleActionPenalty = 0.05 * torch.norm(self.actionVec - self.rescaleActionVec(self.actionVec)).item()
+        if rescaleActionPenalty > 10:
+            rescaleActionPenalty = 10
         # Encourage to stay alive
         aliveReward = 0.75
         # Penalty for too large change in action
@@ -163,12 +163,12 @@ class WalkingRobot:
         reward = forwardReward - movementPenalty - fallPenalty - rescaleActionPenalty + aliveReward
         reward /= 20
         self.reward = reward
-        # self.rewards.append(reward)
-        # self.forwardRewards.append(forwardReward)
-        # self.fallPenalties.append(fallPenalty)
-        # self.rescaleActionPenalties.append(rescaleActionPenalty)
-        # self.aliveRewards.append(aliveReward)
-        # self.movementPenalties.append(movementPenalty)
+        self.rewards.append(reward)
+        self.forwardRewards.append(forwardReward)
+        self.fallPenalties.append(fallPenalty)
+        self.rescaleActionPenalties.append(rescaleActionPenalty)
+        self.aliveRewards.append(aliveReward)
+        self.movementPenalties.append(movementPenalty)
 
     def plot(self, episode):
         os.makedirs(f'image/{episode}', exist_ok=True)
@@ -188,8 +188,8 @@ class WalkingRobot:
         plt.close()
         
         plt.figure()
-        plt.plot(self.valueLossList, label='Value Loss')
-        plt.plot(self.policyLossList, label='Policy Loss')
+        plt.plot(self.agent.valueLosses, label='Value Loss')
+        plt.plot(self.agent.policyLosses, label='Policy Loss')
         plt.xlabel('Interval')
         plt.ylabel('Loss')
         plt.legend()
@@ -200,6 +200,7 @@ class WalkingRobot:
         plt.figure()
         plt.plot(self.forwardRewards, label='Forward Reward')
         plt.plot(self.fallPenalties, label='Fall Penalty')
+        plt.plot(self.heightPenalties, label='Height Penalty')
         plt.plot(self.movementPenalties, label='Movement Penalty')
         plt.plot(self.rescaleActionPenalties, label='Rescale Action Penalty')
         plt.plot(self.aliveRewards, label='Alive Reward')
